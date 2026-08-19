@@ -5,14 +5,22 @@ on:
     branches: [main]
   workflow_dispatch:
 
-# the gh-pages target needs contents: write
 permissions:
-  contents: write
+  contents: read
   pages: write
+  id-token: write
+
+# let a running deploy finish rather than cancelling it mid-publish
+concurrency:
+  group: pages
+  cancel-in-progress: false
 
 jobs:
   build-deploy:
     runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
 
@@ -30,9 +38,18 @@ jobs:
             any::knitr
             any::rmarkdown
 
-      - uses: quarto-dev/quarto-actions/publish@v2
+      # HTML only: Pages serves the site, and the book's HTML carries no PDF
+      # download link, so skipping the PDF avoids installing LaTeX
+      - name: Render the book
+        run: quarto render --to html
+
+      # the artifact route, not `quarto publish gh-pages`: that one refuses to
+      # run until a gh-pages branch already exists, which nothing creates
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
         with:
-          target: gh-pages
-          path: .
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          path: _book
+
+      - id: deployment
+        uses: actions/deploy-pages@v4
