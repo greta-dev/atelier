@@ -1,0 +1,444 @@
+---
+title: "exploring "
+format: html
+---
+
+```{r}
+devtools::load_all(here::here("../greta/"))
+```
+
+
+The issue is to do with the fact that the distribution has a representation.
+
+The wishart has a choleksy representation because this is a useful feature to store as this is used when calculating the density of a wishart.
+
+Let's look at wishart, and taking a cholesky of wishart, and how this is plotted as a DAG.
+
+```{r}
+x <- wishart(df = 4, Sigma = diag(3))
+x
+chol_x <- chol(x, force_cholesky = FALSE)
+m <- model(x, chol_x)
+plot(m)
+```
+
+What we see here might be a bit confusing, let's contrast this with doing an operation on a normal distribution:
+
+```{r}
+y <- normal(0, 1)
+y
+log_y <- log(y)
+log_y
+
+log_model <- model(y, log_y)
+plot(log_model)
+```
+
+The issue is that the wishart distribution has a representation slot. This isn't something that a normal, or other distributions have. Because of this, we end up in a slightly tricky situation.
+
+I'm not sure if it helps, but here's what happens if we do another 
+
+```{r}
+z <- wishart(df = 4, Sigma = diag(3))
+z
+log_z <- log(z)
+log_z
+
+plot(model(z, log_z))
+```
+
+To debug this 
+
+```{r}
+calculate(chol_x, nsim = 1)
+Sys.setenv("GRETA_DEBUG"="false")
+calculate(chol_x, nsim = 1)
+
+```
+
+# a proposed solution 
+
+We want to, when defining a wishart distribution
+
+Currently, when we create wishart randomly distributed variable, we create a wishart distribution node.
+
+```{r}
+self$add_target(self$create_target(truncation))
+```
+
+
+We create a variable node for the cholesky factor
+
+We create an operation node (a chol2symm node of the variable node), and 
+```{r}
+create_target = function(truncation) {
+  # create cholesky factor variable greta array
+  chol_greta_array <- cholesky_variable(self$dim[1])
+
+  # reshape to a symmetric matrix (retaining cholesky representation)
+  matrix_greta_array <- chol2symm(chol_greta_array)
+
+  # return the node for the symmetric matrix
+  target_node <- get_node(matrix_greta_array)
+  target_node
+}
+```
+
+We say that that operation node has a distribution (the wishart). 
+
+```{r}
+self$add_target(self$create_target(truncation))
+# ...
+
+# create target node, add as a parent, and give it this distribution
+add_target = function(new_target) {
+  ##browser()
+  # add as target and as a parent
+  self$target <- new_target
+  self$add_parent(new_target)
+
+  # get its values
+  self$value(new_target$value())
+
+  # give self to x as its distribution
+  self$target$set_distribution(self)
+
+  # optionally reset any distribution flags relating to the previous target
+  self$reset_target_flags()
+}
+```
+
+
+This works fine when fitting, because we define the variable, and compute the distribution of it, and evaluate the density of the wishart against the operation (when proposing new values as done in MCMC).
+
+When sampling, the variable node does not know how to define itself FROM the operation node. So the proposal would be to change the above ^^.
+
+So when we create a wishart distributed variable.
+We create a wishart distribution node, then we create a variable node for the cholseky factor, and we set that as the target of the wishart distribution.
+
+```{r}
+# reference code
+self$add_target(self$create_target(truncation))
+
+# changes made here
+create_target = function(truncation) {
+  # create cholesky factor variable greta array
+  chol_greta_array <- cholesky_variable(self$dim[1])
+
+  # reshape to a symmetric matrix (retaining cholesky representation)
+  # matrix_greta_array <- chol2symm(chol_greta_array)
+
+  # return the node for the symmetric matrix
+  # target_node <- get_node(matrix_greta_array)
+  target_node <- get_node(chol_greta_array)
+  target_node
+}
+```
+
+
+Then we create an operation node from the variable node (with a chol2symm operation). 
+
+Nick: I'm not sure where to do this? Do we just put this inside of `wishart_distribution`
+
+```{r}
+ # reshape to a symmetric matrix (retaining cholesky representation)
+  matrix_greta_array <- chol2symm(chol_greta_array)
+
+  # return the node for the symmetric matrix
+  target_node <- get_node(matrix_greta_array)
+```
+
+Perhaps after:
+
+```{r}
+     # initialize with a cholesky factor
+      super$initialize("wishart", dim(sigma), multivariate = TRUE)
+```
+
+?
+
+We would need to modify the functions in the wishart distribution node, so that when the density is evaluated, it takes the cholesky factor as the thing it's evaluating the density on, but then when doing fitting - this would work, because a proposed value would still evaluate the density correcttly. 
+
+So we would be changing this part of Wishart:
+
+```{r}
+tf_distrib = function(parameters, dag) {
+
+      # this is messy, we want to use the tfp wishart, but can't define the
+      # density without expanding the dimension of x
+
+      log_prob <- function(x) {
+
+        # reshape the dimensions
+        df <- tf_flatten(parameters$df)
+        sigma <- tf$expand_dims(parameters$sigma, 1L)
+        x <- tf$expand_dims(x, 1L)
+
+        # get the cholesky factor of Sigma in tf orientation
+        if (self$sigma_is_cholesky) {
+          sigma_chol <- tf$linalg$matrix_transpose(sigma)
+        } else {
+          sigma_chol <- tf$linalg$cholesky(sigma)
+        }
+
+        # get the cholesky factor of the target in tf_orientation
+        if (self$target_is_cholesky) {
+          x_chol <- tf$linalg$matrix_transpose(x)
+        } else {
+          x_chol <- tf$linalg$cholesky(x)
+        }
+
+        # use the density for choleskied x, with choleskied Sigma
+        distrib <- tfp$distributions$WishartTriL(
+          df = df,
+          scale_tril = sigma_chol,
+          input_output_cholesky = TRUE
+        )
+
+        distrib$log_prob(x_chol)
+      }
+      
+      # ... sample bit is after this
+}
+```
+
+When sampling, the variable node could define itself from the distribution directly. So we'd need the Wishart distribution sampling method to sample the cholesky factor, rather than sample the symmetric (chol2symm operation).
+
+```{r}
+tf_distrib = function(parameters, dag) {
+  # log_prob part
+  # ...
+        sample <- function(seed) {
+        df <- tf$squeeze(parameters$df, 1:2)
+        sigma <- parameters$sigma
+
+        # get the cholesky factor of Sigma in tf orientation
+        if (self$sigma_is_cholesky) {
+          sigma_chol <- tf$linalg$matrix_transpose(sigma)
+        } else {
+          sigma_chol <- tf$linalg$cholesky(sigma)
+        }
+
+        # use the density for choleskied x, with choleskied Sigma
+        distrib <- tfp$distributions$WishartTriL(
+          df = df,
+          scale_tril = sigma_chol,
+          ## TF1/2 could potentially flip to TRUE, then at
+          ## target_is_cholesky check below we could use tf_chol2symm
+          ## instead of tf_chol, as this should be more efficient
+          input_output_cholesky = FALSE
+        )
+
+        ## TF1/2
+        ## The issue with getting the cholesky part of the Wishart
+        ## isn't happening here,
+        ## This produces something that looks about right
+        draws <- distrib$sample(seed = seed)
+
+        ## TF1/2 - as above, this would need to be !self$target_is_cholesky
+        if (self$target_is_cholesky) {
+          draws <- tf_chol(draws)
+        }
+
+        draws
+        }
+        # ...
+}
+```
+
+
+
+Some other things may break from this:
+
+- e.g., setting initial values. e.g., setting initial values for wishart object. SO - investigate behaviour when setting initial values.
+- Also look at other operations that behave a similar way. E.g., multinomial/categorical distributions might do something similar (in terms of representations). Have a look at LKJ correlation
+
+We define a variable node, which contains the wishart distribution
+
+
+
+# Forcing cholesky
+
+This is something that we can do, but it will
+
+```{r}
+chol_x_forced <- chol(x, force_cholesky = TRUE)
+chol_x
+calculate(chol_x, nsim = 1)
+calculate(chol_x_forced, nsim = 1)
+
+
+devtools::load_all("../greta/")
+n <- 3e3
+Sigma <- wishart(n + 1, diag(n))
+chol_Sigma <- chol(Sigma, force_cholesky = FALSE)
+Sigma2 <- wishart(n + 1, diag(n))
+chol_Sigma2 <- chol(Sigma2, force_cholesky = TRUE)
+bm <- bench::mark(
+  representation = calculate(chol_Sigma, nsim = 10),
+  no_representation = calculate(chol_Sigma2, nsim = 10),
+  check = FALSE
+)
+
+
+readr::write_rds(bm, "benchmark-cholesky-old.rds")
+bm
+bm_patch <- readr::read_rds(here::here("benchmark-cholesky-fix.rds"))
+
+bm
+bm_patch
+# summary(bm, relative = TRUE)
+
+
+# now make the changes to greta and check...
+
+
+
+chol_rep <- calculate(chol_Sigma, nsim = 10)
+chol_no_rep <- calculate(chol_Sigma2, nsim = 10)
+
+chol_rep$chol_Sigma[1,1:5,1:5]
+chol_no_rep$chol_Sigma2[1, 1:5, 1:5]
+
+
+y <- normal(0,1)
+ylog <- log(y)
+m_y <- model(y, ylog)
+plot(m_y)
+
+dag$node_types
+
+dag$node_types
+
+which_node_is <- function(x, type){
+  vapply(x$node_types,
+         \(x) x == type,
+         TRUE)
+}
+
+which_node_operation <- function(x){
+  which_node_is(x, "operation")
+}
+
+which_node_operation(dag)
+
+which_node_variable <- function(x){
+  which_node_is(x, "variable")
+}
+
+which_node_distribution <- function(x){
+  which_node_is(x, "distribution")
+}
+
+which_node_data <- function(x){
+  which_node_is(x, "data")
+}
+
+extract_node_type <- function(x, type){
+  node_type_lgl <- which_node_is(x, type)
+  node_matches <- names(x$node_types[node_type_lgl])
+  x$node_list[node_matches]
+  # dag$node_list[["node_35f20ab3"]]
+}
+
+which_node_is(dag, "operation")
+
+op_nodes <- extract_node_type(dag, "operation")
+var_nodes <- extract_node_type(dag, "variable")
+
+which_node_is <- function(x, type){
+  vapply(x$node_types,
+         \(x) x == type,
+         TRUE)
+}
+
+which_node_variable <- function(x){
+  which_node_is(x, "variable")
+}
+
+var_nodes <- extract_node_type(dag, "variable")
+
+list_children <- function(node){
+  lapply(
+    node,
+    \(x) x$children
+  ) |> 
+    unlist()
+}
+
+have_cholesky_representation <- function(x){
+  vapply(
+    x,
+    \(x) has_representation(x, "cholesky"),
+    TRUE
+  )
+}
+
+have_distribution <- function(x){
+  vapply(
+    x,
+    \(x) has_distribution(x),
+    TRUE
+  )
+}
+
+var_children <- list_children(var_nodes)
+
+have_distribution(var_children)
+
+which_chol_rep <- have_cholesky_representation(var_children)
+
+# getting the node in the representation slot
+child_with_representation <- var_children[which_chol_rep]
+
+# but these aren't the same??
+child_with_representation$node_a7cc09871$representations
+self$representations
+
+#  For a given node (self), loop through the children and find out if they are 'antirepresentations'. A child is an antirepresentations of self if  that child has a representation, and the node in the representation slot is identical to self. So self can just loop through the children and run this test on them 
+
+# does child have representation?
+
+var_nodes$node_a7cc0987$children[[1]]$representations$cholesky
+
+var_nodes$node_a7cc0987
+
+dag$node_list$node_6a98914b$children
+
+dag$node_list$node_6a98914b$children
+
+#  A child is an antirepresentations of self if:
+# that child has a representation, and 
+# the node in the representation slot is identical to self. 
+# So self can just loop through the children and run this test on them
+
+have_cholesky_representation(var_nodes$node_a7cc0987$children)
+
+var_nodes$node_a7cc0987$children[[1]]$representations$cholesky
+
+child_rep_node <- get_node(
+  var_nodes$node_a7cc0987$children[[1]]$representations$cholesky
+)
+
+# that node does not appear to be identical to self?
+self$unique_name
+child_rep_node$unique_name
+
+var_nodes$node_a7cc0987$children[[2]]$representations
+
+
+
+have_cholesky_representation(var_nodes$node_a7cc0987$children)
+
+has_distribution(op_nodes$node_6a98914b$parents[[1]])
+has_distribution(op_nodes$node_6a98914b)
+has_distribution(op_nodes$node_f17d95fc)
+
+if (node_type == "operation") {
+  # browser()
+  parent_name <- node$parents[[1]]$unique_name
+  parent_stateless <- parent_name %in% stateless_names
+  to_sample <- has_distribution(node) & parent_stateless
+  node_mode <- ifelse(to_sample, "sampling", "forward")
+}
+```

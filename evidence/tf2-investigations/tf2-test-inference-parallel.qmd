@@ -1,0 +1,142 @@
+# errors in test_inference.R related to parallel futures not working
+
+```{r}
+devtools::load_all("../greta/")
+# source(here::here("../greta/", "tests", "testthat", "helpers.R"))
+## error 9 - mcmc works in parallel
+## issues with mcmc failing with future - first try without future
+# turn off- need to restart R
+m <- model(normal(0, 1))
+
+# one chain
+# expect_ok(
+  draws <- mcmc(m,
+                        warmup = 10, n_samples = 10,
+                        chains = 1,
+                        verbose = FALSE
+)
+  # )
+```
+
+It doesn't fail for a sequential plan
+
+```{r}
+# now try with future - it fails :(
+op <- future::plan()
+# put the future plan back as we found it
+withr::defer(future::plan(op))
+future::plan(future::sequential)
+
+# works for sequential
+# one chain
+expect_ok(draws <- mcmc(m,
+                        warmup = 10, n_samples = 10,
+                        chains = 1,
+                        verbose = FALSE
+))
+```
+
+But it does fails for multisession
+
+```{r}
+devtools::load_all("../greta/")
+m <- model(normal(0, 1))
+future::plan(future::multisession)
+  draws <- mcmc(m,
+                warmup = 10, n_samples = 10,
+                chains = 2, verbose = FALSE)
+```
+
+this errors with:
+
+```
+Error in py_call_impl(callable, dots$args, dots$keywords) :
+ValueError: Attempt to convert a value (None) with an unsupported type
+(<class 'NoneType'>) to a Tensor.
+```
+
+```{r}
+## Error 10 - parallel reporting works
+
+m <- model(normal(0, 1))
+
+op <- future::plan()
+# put the future plan back as we found it
+withr::defer(future::plan(op))
+future::plan(future::multisession)
+
+# should report each sampler's progress with a fraction
+out <- get_output(. <- mcmc(m, warmup = 50, n_samples = 50, chains = 2))
+expect_match(out, "2 samplers in parallel")
+expect_match(out, "50/50")
+```
+
+
+# New changes
+
+When changing this code:
+
+```{r}
+result <- self$define_tf_draws(
+  free_state = tensorflow::as_tensor(
+    free_state,
+    dtype = tf_float()
+  ),
+  sampler_burst_length = tensorflow::as_tensor(sampler_burst_length),
+  sampler_thin = tensorflow::as_tensor(sampler_thin),
+  sampler_param_vec = tensorflow::as_tensor(
+    sampler_param_vec,
+    dtype = tf_float(),
+    shape = length(sampler_param_vec)
+  )
+)
+```
+
+To use the `tf_function` version of `define_tf_draws`, `tf_evaluate_sample_batch`
+
+We now get the following error:
+
+```{r}
+result <- self$tf_evaluate_sample_batch(
+  # result <- self$define_tf_draws(
+  free_state = tensorflow::as_tensor(
+    free_state,
+    dtype = tf_float()
+  ),
+  sampler_burst_length = tensorflow::as_tensor(sampler_burst_length),
+  sampler_thin = tensorflow::as_tensor(sampler_thin),
+  sampler_param_vec = tensorflow::as_tensor(
+    sampler_param_vec,
+    dtype = tf_float(),
+    shape = length(sampler_param_vec)
+  )
+)
+```
+
+```
+Unable to access object (object is from previous session and is now invalid)
+```
+
+Which was occurring when we were doing the debugging.
+
+Adding cleanly doesn't create any further issues
+
+```{r}
+result <- cleanly(
+  self$tf_evaluate_sample_batch(
+    # result <- self$define_tf_draws(
+    free_state = tensorflow::as_tensor(
+      free_state,
+      dtype = tf_float()
+    ),
+    sampler_burst_length = tensorflow::as_tensor(sampler_burst_length),
+    sampler_thin = tensorflow::as_tensor(sampler_thin),
+    sampler_param_vec = tensorflow::as_tensor(
+      sampler_param_vec,
+      dtype = tf_float(),
+      shape = length(sampler_param_vec)
+    )
+  )
+) # closing cleanly
+```
+

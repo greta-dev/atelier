@@ -1,0 +1,116 @@
+---
+title: "Exploring a redesign in greta for representations"
+format: html
+---
+
+# Initial tasks
+
+MCMC/likelihood definition vs sampling
+
+ 1. Write in Pseudocode
+ 2. Write with simple working R code to define the different implementations
+ 3. Work out from scratch how to recurse through the node DAG to make the nodes execute their TF code in the correct order, including with representations.
+	 - This may be different than the existing 'mode' (forward/sampling/hybrid) mechanism where nodes are told what mode they are defining themselves in by the DAG, or it might be the same
+	 - Use the examples below to help
+
+Defining the model notation etc
+```{r}
+# notation  
+# x ~ wishart(df, sigma)  
+# x_chol = chol(x)  
+  
+# greta code for model  
+x <- wishart(df, sigma)  
+x_chol <- chol(x)  
+```
+
+MCMC/likelihood definition
+```{r}
+# internal code for MCMC  
+matrix_dim <- 3  
+df <- matrix_dim + 1  
+Sigma <- diag(matrix_dim)  
+  
+free_state <- rnorm(6)  
+# x_chol <- make_upper_triangular(free_state)  
+x_chol <- matrix(0, matrix_dim, matrix_dim)  
+x_chol[upper.tri(x_chol, diag = TRUE)] <- free_state  
+# x <- chol2symm(x_chol)  
+x <- t(x_chol) %*% x_chol  
+# dens <- MCMCpack::dwish(x, df, Sigma)  
+dens <- dwish_chol(x_chol, df, Sigma)  
+# max(abs(x_chol - chol(x))) < 1e-8  
+```
+
+Sampling
+```{r}
+# internal code for sampling  
+matrix_dim <- 3  
+df <- matrix_dim + 1  
+Sigma <- diag(matrix_dim)  
+  
+x <- rWishart(1, df, Sigma)[, , 1]  
+x_chol <- chol(x)  
+  
+# x_chol is a variable  
+x_chol <- greta::cholesky_variable(3)  
+x_chol_node <- greta:::get_node(x_chol)  
+x_chol_node$parents  
+  
+# when we do wishart, it creates an equivalent of the x_chol does an operation  
+# (chol2symm), and defines the distribution over the operation node  
+library(greta)  
+x <- greta::wishart(df, Sigma)  
+plot(model(x))  
+x_node <- greta:::get_node(x)  
+x_node  
+x_node$parents
+```
+# Handling the cholesky factor
+1. Consider possible alternative ways to handle cholesky factor variables
+	- i.e., alternatives to defining a distribution on an operation.
+	- E.g., Define a `psd_variable` (positive semi-definite) and define Wishart density on that. Would need a way to obtain cholesky factor from that without doing the operation.
+
+It might be best to think about redesigning the whole representations and node recursion process. Look at the example code Golding wrote for some suggestions on how to do this.
+
+# Extension: Link to statistical modelling/optimisation
+
+Eventually link this work into some earlier work I did on simulating vectors from parameters, and also estimating parameters from vectors:
+
+> Given a vector of known covariate values, x, write code that simulates a corresponding vector y from this model, for known values of the parameters: alpha, beta, and sigma.
+
+Two:
+
+> Write code to estimate the values of alpha, beta, and sigma, given the vectors y and x using R's optim function.
+
+The idea is to eventually put all of these ideas into a single coherent design/book. The goal would be to demonstrate how we want to try and solve some common statistical problems - e.g., estimating and simulating parameters. And then around ways to design interfaces to that, and in doing so slowly guide the reader step by step into how the result is a piece of software like greta. 
+# Extension: write pseudocode of the process greta uses to do the following:
+
+1. `x <- wishart(df = 4, Sigma = diag(3))`
+2. `calculate(x, nsim = 1)
+3. `chol_x < - chol(x)`
+4. `calculate(x_chol, nsim = 1)`
+5. `calculate(x, nsim = 1)` (see how `x` is different after doing `chol_x`)
+6. `calculate(x_chol, values = list(x = rWish(...)))`
+7. `mcmc(model(x), n_samples = 1)`
+8. MCMC: on x, one where no values are provided and nsim is set
+	```{r}
+	x <- wishart(df = 4, Sigma = diag(3))
+	m <- model(x)
+	draws <- mcmc(m, n_samples = 1)
+	```
+9. MCMC: on x, one where x is provided and you tell it to calculate x_chol    
+```{r}
+ x <- wishart(df = 4, Sigma = diag(3))
+ x_chol <- chol(x)
+ m <- model(x)
+ draws <- mcmc(m, n_samples = 1)
+ ```
+10. MCMC: on x_chol: one where no values are provided and nsim is set
+```{r}
+x <- wishart(df = 4, Sigma = diag(3))
+x_chol <- chol(x)
+m <- model(x, x_chol)
+draws <- mcmc(m, n_samples = 1)
+```
+

@@ -1,0 +1,884 @@
+---
+title: "cholesky-business"
+format: 
+  html:
+    toc: true
+    number-depth: 4
+    number-sections: true
+execute: 
+  eval: FALSE
+---
+
+```{r}
+devtools::load_all("../greta/")
+# debugonce(wishart)
+x <- wishart(df = 4, Sigma = diag(3))
+x_chol <- chol(x)
+m <- model(x, x_chol)
+plot(m)
+```
+
+The problem is that doing calculate on `x_chol`, it is just returning identity (1s), because it doesn’t know that `x_chol` has parents of `x`, which is a wishart distribution.
+
+The goal then is that when we are using calculate on `x_chol`, that then we tell it that `x_chol` has parents, and then define the appropriate parents. Remembering that we want to avoid infinite recursion
+
+Understand how the code executes for each of these
+
+Draw out the ways that the code executes for the following sections
+
+# calculate: on x, one where no values are provided and nsim is set
+
+```{r}
+#| eval: false
+x <- wishart(df = 4, Sigma = diag(3))
+calculate(x, nsim = 1)
+```
+
+## Creating `wishart()`
+
+Calls 
+
+```
+wishart <- function(df, Sigma) { # nolint
+  distrib("wishart", df, Sigma)
+}
+```
+
+### distrib
+
+The wrapper `distrib` passes the arguments "distribution", and `...` along to 
+a general function that handles distribution construction.
+
+```r
+distrib <- function(distribution, ...) {
+  check_tf_version("error")
+
+  # get and initialize the distribution, with a default value node
+  constructor <- get(
+    x = glue::glue("{distribution}_distribution"),
+    envir = parent.frame()
+  )
+  distrib <- constructor$new(...)
+
+  # return the user-facing representation of the node as a greta array
+  value <- distrib$user_node
+  as.greta_array(value)
+}
+```
+
+Where `constructor` is: `wishart_distribution`, an R6 object, which has an initialisation ($new) method.
+
+#### wishart_distribution$new()
+
+Within this $new method,the `df` and `Sigma` components of `wishart` get converted into greta arrays.
+
+```r
+initialize = function(df, Sigma) { # nolint
+      # add the nodes as parents and parameters
+
+      df <- as.greta_array(df)
+      sigma <- as.greta_array(Sigma)
+...
+```
+
+#####  as.greta_array / node$new()
+
+Creating a new greta array triggers a new node$new() method. This essentially does the following:
+
+- Checks if dimensions exist. If they don't exist they are added as 1,1
+- Checks if values exist. If they don't, use default value of `array(NA)`
+- Converts things with dim of 1 into a column vector - an array with dim 1,1
+- Gives it a random hex node name
+
+`Sigma` gets its dimensions checked
+
+
+```r
+df <- as.greta_array(df)
+sigma <- as.greta_array(Sigma)
+
+# check dimensions of Sigma
+check_sigma_square_2d_greta_array(sigma)
+```
+
+then we initialise the wishart.
+
+```r
+check_sigma_square_2d_greta_array(sigma)
+
+dim <- nrow(sigma)
+
+# initialize with a cholesky factor
+super$initialize("wishart", dim(sigma), multivariate = TRUE)
+```
+
+This triggers building the R6 building of a "distribution_node", which also immediately triggers 
+
+```r
+super$initialize(dim)
+```
+
+Which runs `node$new()` on `dim.` this then does the process of adding the dimension and value information to the Sigma dimension. In this case the sigma gets the value slot converted to unknowns, and dimensions added to it.
+
+
+Some options are set:
+
+```r
+super$initialize(dim)
+
+# for all distributions, set name, store dims, and set whether discrete
+self$distribution_name <- name
+self$discrete <- discrete
+self$multivariate <- multivariate
+self$truncatable <- truncatable
+```
+
+Then for all distributions, set name, store dims, and set whether discrete
+
+```r
+# for all distributions, set name, store dims, and set whether discrete
+self$distribution_name <- name
+self$discrete <- discrete
+self$multivariate <- multivariate
+self$truncatable <- truncatable
+
+# initialize the target values of this distribution
+self$add_target(self$create_target(truncation))
+```
+
+`create_target` does this:
+
+```r
+create_target = function(truncation) {
+
+  # create cholesky factor variable greta array
+  chol_greta_array <- cholesky_variable(self$dim[1])
+
+  # reshape to a symmetric matrix (retaining cholesky representation)
+  matrix_greta_array <- chol2symm(chol_greta_array)
+
+  # return the node for the symmetric matrix
+  target_node <- get_node(matrix_greta_array)
+  target_node
+},
+```
+
+> NOTE: The argument `truncation` isn't used here?
+
+
+`cholesky_variable` on the dimension
+
+```r
+chol_greta_array <- cholesky_variable(self$dim[1])
+```
+
+And inside `cholesky_variable`, there's some error checking code to make sure it has the right dimensions.
+
+```r
+# dimension of the free state version
+free_dim <- ifelse(correlation,
+k * (k - 1) / 2,
+k + k * (k - 1) / 2
+  )
+```
+
+> NOTE: This part is unclear to me. Why do we need to set the free dimension, and why is this 6, when k is 3?
+
+Then this free_state dimension is created? This ends up being 6, because `k` is 3...
+
+Then a variable node is created around this:
+
+```r
+# create variable node
+node <- vble(
+  truncation = c(-Inf, Inf),
+  dim = dim,
+  free_dim = free_dim
+)
+```
+
+Then this creates a new variable node:
+
+```r
+variable_node$new(
+    lower = truncation[[1]],
+    upper = truncation[[2]],
+    dim = dim,
+    free_dim = free_dim
+  )
+```
+
+Then the cholesky values (of the dimensions) are 
+
+```r
+# set the printed value to be nicer
+cholesky_value <- unknowns(dim)
+cholesky_value[lower.tri(cholesky_value, )] <- 0
+node$value(cholesky_value)
+```
+
+node$value seems to just record the dimensions and values of this so far, which are
+
+```
+     [,1] [,2] [,3]
+[1,]  ?    ?    ?  
+[2,] 0     ?    ?  
+[3,] 0    0     ? 
+```
+
+```r
+# reeturn as a greta array
+as.greta_array(node)
+```
+
+Then we do
+
+```r
+# reshape to a symmetric matrix (retaining cholesky representation)
+matrix_greta_array <- chol2symm(chol_greta_array)
+```
+
+Then `chol2symm.greta_array` is called
+
+```r
+#' @export
+chol2symm.greta_array <- function(x) {
+  x <- as.greta_array(x)
+
+  check_chol2symm_2d_square_upper_tri_greta_array(x)
+
+  # sum the elements
+  op("chol2symm", x,
+    tf_operation = "tf_chol2symm",
+    representations = list(cholesky = x)
+  )
+}
+```
+
+So my understanding then is that in doing chol2symm here we are also storing the representation of this as cholesky. This is similar to how we do log of something and then store the representation as the exponent
+
+Here `x` is the greta array:
+
+```
+greta array (variable)
+
+     [,1] [,2] [,3]
+[1,]  ?    ?    ?  
+[2,] 0     ?    ?  
+[3,] 0    0     ?  
+```
+
+some checks are done, and then we call
+
+```r
+# sum the elements
+op("chol2symm", x,
+  tf_operation = "tf_chol2symm",
+  representations = list(cholesky = x)
+)
+```
+
+Essentially this is the part where the representation is recorded. This creates
+
+```r
+matrix_greta_array <- chol2symm(chol_greta_array)
+```
+
+matrix_greta_array is:
+
+```
+greta array (operation)
+
+     [,1] [,2] [,3]
+[1,]  ?    ?    ?  
+[2,]  ?    ?    ?  
+[3,]  ?    ?    ? 
+```
+
+And now we are back at the `add_target` part of this:
+
+```r
+# initialize the target values of this distribution
+self$add_target(self$create_target(truncation))
+```
+
+This part controls the adding of parents I think?
+
+```r
+# create target node, add as a parent, and give it this distribution
+add_target = function(new_target) {
+
+  # add as target and as a parent
+  self$target <- new_target
+  self$add_parent(new_target)
+
+  # get its values
+  self$value(new_target$value())
+
+  # give self to x as its distribution
+  self$target$set_distribution(self)
+
+  # optionally reset any distribution flags relating to the previous target
+  self$reset_target_flags()
+},
+```
+
+There's something interesting/curious here, in the `reset_target_flags()` part, which says "optionally reset any distribution flags", but the code does the following:
+
+```r
+    # if the target is changed, make sure target_is_cholesky is reset to FALSE
+    # (can be resent on graph definition)
+    reset_target_flags = function() {
+      self$target_is_cholesky <- FALSE
+    },
+```
+
+And they make reference to "can be resent on graph definition", but I can't seem to see any further examples of this. It's worth noting that this code is the same in TF1 / greta graph mode.
+
+```r
+# set parameters
+if (has_representation(sigma, "cholesky")) {
+  sigma <- representation(sigma, "cholesky")
+  self$sigma_is_cholesky <- TRUE
+}
+self$add_parameter(df, "df", shape_matches_output = FALSE)
+self$add_parameter(sigma, "sigma")
+
+# make the initial value PD (no idea whether this does anything)
+self$value(unknowns(dims = c(dim, dim), data = diag(dim)))
+```
+
+This seems to set the value slot here. I'm not sure about the comment, "no idea whether this does anything". Unkowns are essentially an array with a special print method, the heart of them is that they store data and dimensions:
+
+```r
+array(data = data, dim = dims)
+```
+
+I'm not sure why the class information for unknowns needs to be stored in the value slot.
+
+### calculate(x)
+
+Now let's look at the second part of this code:
+
+```r
+calculate(x, nsim = 1)
+```
+
+We use the compute device using `with(tf$device(compute_options), {`,
+
+pass some message about the computing device used:
+
+```r
+message_if_using_gpu(compute_options)
+```
+turn the provided greta arrays into a list
+```r
+# turn the provided greta arrays into a list
+    target <- list(...)
+```
+
+In this case, that target is:
+
+```
+[[1]]
+greta array (operation following a wishart distribution)
+
+     [,1] [,2] [,3]
+[1,]  ?    ?    ?  
+[2,]  ?    ?    ?  
+[3,]  ?    ?    ?  
+```
+
+Then there are no names, since it is just an unnamed list. When there are no names they are filled in. Essentially this is a bunch of work checking if names are specified and then doing various tricks with substitute, deparse, and friends.
+
+Then there's a bunch of checks that get performed
+
+Then we do `calculate_list()`
+
+Then there's checks to see if there are values passed as arguments. There aren't in this case. If there are values, we check if there are names.
+
+the target (x) and the values () are then passed along to the next step
+
+```r
+all_greta_arrays <- c(fixed_greta_arrays, target)
+```
+
+A new dag class is then instantiated over all the greta arrays:
+
+```r
+dag <- dag_class$new(all_greta_arrays, tf_float = tf_float)
+```
+
+So effectively this help collect all the metadata about how this node is related to everything else, what its parents, childen are, as well as the log prob function, and `define_trace_values_batch`, 
+
+Then we check if it is unsampleable and unfixed
+
+`check_if_unsampleable_and_unfixed(fixed_greta_arrays, dag)`
+
+Here's a key comment here:
+
+```r
+# check there are no variables without distributions (or whose children have
+# distributions - for lkj & wishart) that aren't given fixed values
+```
+
+There's a bunch of checks there that might be worthwhile going back to?
+
+Then we step into `calculate_target_tensor_list`
+
+Inside this we basically do the following:
+
+- get dag mode to "all_sampling"
+- get tensor names and values
+- get batch size
+- assign all the tensor values to the right tensor values
+
+then we do
+
+```r
+  # look up the tf names of the target greta arrays (under sampling)
+  # create an object in the environment that's a list of these, and sample that
+  target_nodes <- lapply(target, get_node)
+  target_names_list <- lapply(target_nodes, dag$tf_name)
+```
+
+Then we define tf on `target_nodes`
+
+```r
+dag$define_tf(target_nodes = target_nodes)
+```
+
+We do not do this:
+
+```r
+if (self$mode != "all_sampling") {
+  self$define_batch_size()
+}
+```
+
+But then we define the `tf_body`
+
+```r
+self$define_tf_body(target_nodes = target_nodes)
+```
+
+remembering that effectively here in our case that `target_nodes` here is just the wishart distribution.
+
+Then there's a `define_tf` step
+
+- This is often a recursive function
+    - define parents
+    - list parents
+    - make sure parents are defined
+        - this part is recursive
+- then define self, using `tf` method
+  - get your name
+  - define your method?
+      - # if doing inference, everything is push-forward
+        - all_forward = "forward",
+      - # sampling from prior most nodes are in sampling mode
+        - all_sampling = self$how_to_define_all_sampling(node),
+      - # sampling from posterior some nodes defined forward, others sampled
+        - hybrid = self$how_to_define_hybrid(node)
+  - in this case, "forward"
+  - Then
+  
+  is_cholesky <- isTRUE(self$golden_cholesky)
+  
+  - No
+  
+  - Then we get to the heard of this operation: SAMPLING!
+```r
+# if sampling get the distribution constructor and sample this
+if (mode == "sampling") {
+  tensor <- dag$draw_sample(self$distribution)
+    cholesky_tensor <- tf_chol(tensor)
+    cholesky_tf_name <- dag$tf_name(self$representation$cholesky)
+    assign(cholesky_tf_name, cholesky_tensor, envir = dag$tf_environment)
+
+    # tf_name <- cholesky_tf_name
+    # tensor <- cholesky_tensor
+  }
+```
+
+> NOTE: I'm unclear why we need to cholesky the tensor?
+
+But there is a transpose step inside `tf_chol`
+
+```r
+# transpose and get the right matrix, like R
+tf_chol <- function(x) {
+  x_chol <- tf$linalg$cholesky(x)
+  x_chol_t <- tf_transpose(x_chol)
+  x_chol_t
+}
+```
+
+  tfe <- dag$tf_environment
+
+Then the last step is to assign the tensor out to the right environment
+
+```r
+assign(tf_name, tensor, envir = dag$tf_environment)
+```
+
+# calculate: on x, one where x is provided and you tell it to calculate x_chol
+
+```{r}
+# restart R + Rstudio
+devtools::load_all("../greta/")
+x <- wishart(df = 4, Sigma = diag(3))
+x_chol <- chol(x)
+calculate(x, nsim = 1)
+```
+
+## The wishart part
+
+I sort of know all most of this now.
+
+## chol() on wishart
+
+```{r}
+debugonce(chol)
+x_chol <- chol(x)
+```
+
+We get dispatched to `chol.greta_array`.
+
+After some othe error checking we get to:
+
+```r
+  if (has_representation(x, "cholesky")) {
+    result <- copy_representation(x, "cholesky")
+  } else {
+    dim <- dim(x)
+
+    if (!(length(dim) == 2 && dim[1] == dim[2])) {
+      msg <- cli::format_error(
+        c(
+          "only two-dimensional, square, symmetric {.cls greta_array}s can be \\
+          Cholesky decomposed",
+          "{.code dim(x)} returns: {dim(x)}"
+        )
+      )
+      stop(
+        msg,
+        call. = FALSE
+      )
+    }
+
+    result <- op("chol", x,
+      dim = dim,
+      tf_operation = "tf_chol"
+    )
+
+  }
+```
+
+I am unclear why
+
+```r
+has_representation(x, "cholesky")
+```
+
+is TRUE, since `x` is currently just a Wishart distribution?
+
+However, as a result of this, we don't do this part:
+
+```r
+result <- op("chol", x,
+  dim = dim,
+  tf_operation = "tf_chol"
+)
+```
+
+We just do 
+
+```r
+result <- copy_representation(x, "cholesky")
+```
+
+### calculate(x, nsim = 1)
+
+```{r}
+#| eval: false
+devtools::load_all("../greta/")
+debugonce(calculate_target_tensor_list)
+calculate(x, nsim = 1)
+```
+
+Essentially we end up at:
+
+```r
+calculate_list(
+        target = target,
+        values = values,
+        nsim = nsim,
+        tf_float = tf_float,
+        env = parent.frame()
+      )
+```
+
+And then subsequently at:
+
+```r
+calculate_target_tensor_list(
+    dag = dag,
+    fixed_greta_arrays = fixed_greta_arrays,
+    values = values,
+    stochastic = stochastic,
+    target = target,
+    nsim = nsim
+  )
+```
+
+Then we end up at everyone's favourite bit of recursion:
+
+```r
+dag$define_tf(target_nodes = target_nodes)
+
+# ... 
+
+define_tf = function(target_nodes = self$node_list) {
+  if (self$mode != "all_sampling") {
+    self$define_batch_size()
+  }
+
+  self$define_tf_body(target_nodes = target_nodes)
+
+}
+```
+
+Since `self$mode` is "all_sampling", we jump to 
+
+```r
+self$define_tf_body(target_nodes = target_nodes)
+
+# ...
+
+define_tf_body = function(target_nodes = self$node_list) {
+
+  # if in forward or hybrid mode, split up the free state
+  if (self$mode %in% c("all_forward", "hybrid")) {
+    self$split_free_state()
+  }
+
+  # define all nodes in the environment and on the graph
+  ## HERE
+  lapply(target_nodes, function(x){
+    # browser()
+    x$define_tf(self)
+  })
+
+  invisible(NULL)
+}
+```
+
+Again, we jump to:
+
+```r
+lapply(target_nodes, function(x){
+  # browser()
+  x$define_tf(self)
+})
+
+# And we can debug this with `debugonce(target_nodes$x$define_tf)`
+
+define_tf = function(dag) {
+
+  # if defined already, skip
+  if (!self$defined(dag)) {
+  
+    # make sure parents are defined
+    parents_defined <- vapply(self$list_parents(dag),
+      function(x) x$defined(dag),
+      FUN.VALUE = FALSE
+    )
+    if (any(!parents_defined)) {
+      parents <- self$list_parents(dag)
+      lapply(
+        parents[which(!parents_defined)],
+        function(x){
+          # browser()
+          x$define_tf(dag)
+        }
+      )
+    }
+    
+    # then define self
+      # stop("hi from the future ... parents are of class:", str(parents))
+    self$tf(dag)
+  }
+}
+```
+
+```r
+self$defined(dag)
+```
+
+is FALSE, so we define the parents are defined - note that there is also a recursive step here where the parents also make sure their parents are defined as well.
+
+Then finally we get to:
+
+```r
+self$tf(dag)
+
+# ...
+
+tf = function(dag) {
+  # where to put it
+  tfe <- dag$tf_environment
+  # what to call the tensor object
+  tf_name <- dag$tf_name(self)
+
+  mode <- dag$how_to_define(self)
+
+    is_cholesky <- isTRUE(self$golden_cholesky)
+    if (is_cholesky){
+      ## TF1/2
+      ## warning code about using cholesky...
+    }
+  # if sampling get the distribution constructor and sample this
+  if (mode == "sampling") {
+    tensor <- dag$draw_sample(self$distribution)
+      cholesky_tensor <- tf_chol(tensor)
+      cholesky_tf_name <- dag$tf_name(self$representation$cholesky)
+      assign(cholesky_tf_name, cholesky_tensor, envir = dag$tf_environment)
+
+      # tf_name <- cholesky_tf_name
+      # tensor <- cholesky_tensor
+    }
+
+  if (mode == "forward") {
+
+    # fetch the tensors from the environment
+    arg_tf_names <- lapply(self$list_parents(dag), dag$tf_name)
+    tf_args <- lapply(arg_tf_names, get, envir = tfe)
+
+    # fetch additional (non-tensor) arguments, if any
+    if (length(self$operation_args) > 0) {
+      tf_args <- c(tf_args, self$operation_args)
+    }
+
+    # get the tensorflow function and apply it to the args
+    operation <- eval(parse(text = self$operation),
+      envir = self$tf_function_env
+    )
+    tensor <- do.call(operation, tf_args)
+  }
+
+  # assign it in the environment
+  assign(tf_name, tensor, envir = dag$tf_environment)
+}
+```
+
+Then we end up in the `sampling` mode
+
+```{r}
+#| eval: false
+     if (mode == "sampling") {
+        browser()
+        tensor <- dag$draw_sample(self$distribution)
+          cholesky_tensor <- tf_chol(tensor)
+          cholesky_tf_name <- dag$tf_name(self$representation$cholesky)
+          assign(cholesky_tf_name, cholesky_tensor, envir = dag$tf_environment)
+     }
+```
+
+It's still a bit confusing to me that we do `tf_chol` on the tensor, this seems to be a strange thing to do to all distributions??
+
+# calculate: on x_chol: one where no values are provided and nsim is set
+
+```{r}
+#| eval: false
+x <- wishart(df = 4, Sigma = diag(3))
+x_chol <- chol(x)
+debugonce(calculate)
+calculate(x_chol, nsim = 1)
+```
+
+So far it's the same, but when we are inside the `tf` method, we don't have a distribution that we are sampling from - so we end up at
+
+```{r}
+#| eval: false
+if (mode == "forward") {
+  # fetch the tensors from the environment
+  arg_tf_names <- lapply(self$list_parents(dag), dag$tf_name)
+  tf_args <- lapply(arg_tf_names, get, envir = tfe)
+
+  # fetch additional (non-tensor) arguments, if any
+  if (length(self$operation_args) > 0) {
+    tf_args <- c(tf_args, self$operation_args)
+  }
+
+  # get the tensorflow function and apply it to the args
+  operation <- eval(parse(text = self$operation),
+    envir = self$tf_function_env
+  )
+  # browser()
+  tensor <- do.call(operation, tf_args)
+}
+```
+
+Which I think makes sense in that this greta object doesn't know about its parents, so I need to work out how to make sure it can know about them, and where that happens, so I'll have to dive a bit deeper.
+
+## Side quest: comparing log(x) to chol(x)
+
+```{r}
+devtools::load_all("../greta/")
+x <- wishart(df = 4, Sigma = diag(3))
+debugonce(greta:::log.greta_array)
+log_x <- log(x)
+debugonce(calculate)
+calculate(log_x, nsim = 1)
+debugonce(chol)
+chol_x <- chol(x)
+debugonce(calculate)
+calculate(x, nsim = 1)
+```
+
+A key point so far is that
+
+```r
+mode <- dag$how_to_define(self)
+```
+
+Is "sampling" for `log`, but "forward" for cholesky.
+
+
+
+# calculate: on x_chol: one where x is provided and you tell it to calculate x_chol. 
+
+```r
+x <- wishart(df = 4, Sigma = diag(3))
+x_chol <- chol(x)
+# where some_valid_x_value is from rWish, or somewhere in tests
+calculate(x_chol, values = list(x = some_valid_x_value))
+```
+
+# MCMC: on x, one where no values are provided and nsim is set
+
+```{r}
+x <- wishart(df = 4, Sigma = diag(3))
+m <- model(x)
+draws <- mcmc(m, n_samples = 1)
+```
+
+# MCMC: on x, one where x is provided and you tell it to calculate x_chol
+
+```{r}
+x <- wishart(df = 4, Sigma = diag(3))
+x_chol <- chol(x)
+m <- model(x)
+draws <- mcmc(m, n_samples = 1)
+```
+
+# MCMC: on x_chol: one where no values are provided and nsim is set
+
+```{r}
+x <- wishart(df = 4, Sigma = diag(3))
+x_chol <- chol(x)
+m <- model(x, x_chol)
+draws <- mcmc(m, n_samples = 1)
+```
+
