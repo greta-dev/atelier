@@ -1,0 +1,131 @@
+# Sampling correctness bugs {#sec-sampling-bugs}
+
+- The sampling defects, separated from the sampling features. Grouping
+  labels: `bug`, the `mcmc` cluster.
+- Every issue here is a fix, which is what makes the milestone a patch
+  release: it can ship without waiting on the adaptive sampler, and it
+  answers the maintainer's steer that bugs should be solved as early
+  as possible.
+
+**Why this is its own milestone.** These ten issues used to sit inside
+a single 34-issue sampling milestone alongside SNAPER, NUTS and the
+log-prob rework. That guaranteed the whole thing was a minor release
+and put a set of long-standing bugs behind a research-scale feature.
+Split out, they ship first and they ship as a patch.
+
+**The thinning cluster is one bug, reported four times.**
+[#241](https://github.com/greta-dev/greta/issues/241),
+[#318](https://github.com/greta-dev/greta/issues/318),
+[#567](https://github.com/greta-dev/greta/issues/567) and
+[#609](https://github.com/greta-dev/greta/issues/609) all describe
+`thin`, `pb_update` and `n_samples` interacting badly when they are not
+multiples of each other - a TensorFlow error from a combination of
+arguments that ought to be legal, or silently accepted and wrong.
+Diagnose them together and they are likely one arithmetic fix plus one
+validation message; taken one at a time they look like four unrelated
+reports.
+
+**The seed pair is a lifecycle problem, not an RNG problem.**
+[#285](https://github.com/greta-dev/greta/issues/285) and
+[#427](https://github.com/greta-dev/greta/issues/427) say the same
+thing from two directions: a seed set before TensorFlow initialises
+does not take, and one set afterwards does.
+[#736](https://github.com/greta-dev/greta/issues/736) is the
+documentation that has to change with the fix, which is why it travels
+here rather than with the other documentation issues - a seed
+explanation written against the broken behaviour is worse than none.
+
+The remaining three are independent: a numerical-handling failure in
+`mcmc()` ([#577](https://github.com/greta-dev/greta/issues/577)), `calculate()` hanging rather than erroring on NaN
+parameters ([#617](https://github.com/greta-dev/greta/issues/617)), and a suspected memory leak ([#279](https://github.com/greta-dev/greta/issues/279)).
+
+### [Issue #241](https://github.com/greta-dev/greta/issues/241)
+
+- 2018-10-22
+- bug
+- Thinning with many bad samples raises an error.
+- finding: part of the thin/pb_update TensorArray root cause shared with [#318](https://github.com/greta-dev/greta/issues/318)/#567/#609.
+- fix: fix the shared root cause; add the bad-sample case as a test.
+- priority: medium.
+
+### [Issue #279](https://github.com/greta-dev/greta/issues/279)
+
+- 2019-05-04
+- bug
+- A possible memory leak in `mcmc()`.
+- finding: likely TF-side graph/retracing growth; relates to [#546](https://github.com/greta-dev/greta/issues/546).
+- fix: profile long runs against the [#546](https://github.com/greta-dev/greta/issues/546) retracing hypothesis (graph re-tracing / growth across iterations); if confirmed, the fix is the stable input signatures from [#546](https://github.com/greta-dev/greta/issues/546); otherwise document as upstream.
+- priority: medium (diagnose-first).
+
+### [Issue #285](https://github.com/greta-dev/greta/issues/285)
+
+- 2019-06-15
+- documentation
+- greta appears not to respect the random seed.
+- finding: seed only takes effect after TF init (see [#427](https://github.com/greta-dev/greta/issues/427)); GPU non-determinism is upstream.
+- fix: adopt stateless seeds; document GPU caveat.
+- priority: medium.
+
+### [Issue #318](https://github.com/greta-dev/greta/issues/318)
+
+- 2019-09-26
+- (none)
+- `thin` + `pb_update` combinations produce TF errors.
+- finding: the root cause of the thin trio ([#241](https://github.com/greta-dev/greta/issues/241)/#567/#609) - a TensorArray sizing issue.
+- fix: fix the shared cause; parametrise tests over thin/pb_update.
+- priority: high (root cause).
+
+### [Issue #427](https://github.com/greta-dev/greta/issues/427)
+
+- 2021-06-09
+- (none)
+- A specific seed is only respected after TF has initialised.
+- finding: init-order sensitivity, fixed by stateless seeds.
+- fix: adopt TFP stateless seeds; deterministic regardless of init order.
+- priority: medium.
+
+### [Issue #567](https://github.com/greta-dev/greta/issues/567)
+
+- 2022-10-18
+- Up Next
+- `extra_samples()` fails when thin/pb_update/n_samples aren't multiples.
+- finding: thin-trio root cause ([#318](https://github.com/greta-dev/greta/issues/318)).
+- fix: fix the shared cause; test non-multiple combinations.
+- priority: medium.
+
+### [Issue #577](https://github.com/greta-dev/greta/issues/577)
+
+- 2022-12-09
+- TF2
+- A TF2 failure in "numerical issues are handled in mcmc".
+- finding: records real-but-unreproduced behaviour; not sweep-closable.
+- fix: reproduce under the conformance suite; fix or document.
+- priority: medium.
+
+### [Issue #609](https://github.com/greta-dev/greta/issues/609)
+
+- 2024-02-08
+- Up Next
+- Thinning creates a python error at n_samples 1000, thin 100.
+- finding: thin-trio root cause ([#318](https://github.com/greta-dev/greta/issues/318)).
+- fix: resolved by the shared fix; add this exact case as a test.
+- priority: medium.
+
+### [Issue #617](https://github.com/greta-dev/greta/issues/617)
+
+- 2024-03-03
+- Up Next
+- `calculate()` hangs with NaN parameters in a sampling distribution.
+- finding: a NaN guard missing in the calculate/sampling path; relates to [#244](https://github.com/greta-dev/greta/issues/244)'s NaN loop.
+- fix: detect NaN parameters; error instead of hang.
+- priority: medium.
+
+### [Issue #736](https://github.com/greta-dev/greta/issues/736)
+
+- 2024-10-31
+- (none)
+- Update the documentation for setting the MCMC seed.
+- finding: pairs with the stateless-seed work ([#285](https://github.com/greta-dev/greta/issues/285)/#427).
+- fix: document seeding once stateless seeds land.
+- priority: low.
+

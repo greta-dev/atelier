@@ -1,0 +1,25 @@
+# Preface {.unnumbered}
+
+This is the working plan for [greta](https://greta-dev.github.io/greta/), an R
+package for statistical modelling: what is being worked on, in what order, and
+why.
+
+It is written mostly for the maintainer — a place to put the reasoning behind a
+decision so it can be picked up again months later — and partly for anyone who
+wants to see where greta is going without reading the whole issue tracker.
+
+@sec-plan is the overview: thirteen milestones covering every open issue, in
+release order. One chapter per milestone follows, so milestone *n* is chapter
+*n* + 1. Each chapter says what the milestone is for and how its issues relate,
+then gives a block per issue: the date it was filed, its labels, the finding,
+the proposed fix, and a priority.
+
+Anything niche about a particular issue — a disputed diagnosis, a resolved
+tie-break, a correction to an earlier proposed fix — lives with that issue
+rather than in a chapter of its own. Every issue number links to GitHub.
+
+Two appendices cover the packages with their own release tracks:
+`greta.distributions`, and `greta.checks` (@sec-greta-checks).
+
+This is not a promise about what will ship or when. Where this book and the
+issue tracker disagree, the tracker wins.

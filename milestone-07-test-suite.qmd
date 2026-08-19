@@ -1,0 +1,272 @@
+# Make the test suite trustworthy {#sec-test-suite}
+
+- The tests greta relies on to know it still works: what they cover,
+  how long they take, and whether a passing run means anything.
+  Grouping label: `testing`.
+- Nothing here is user-facing, which is exactly why it needs its own
+  milestone rather than being distributed into releases.
+
+**Why this milestone exists again.** An earlier draft of this plan
+dissolved the testing and documentation milestones and scattered their
+issues into whichever release touched the same files. The reasoning was
+that ongoing work cannot carry a version, and every milestone had to
+carry one. That rule has been dropped: milestones are now work buckets
+and releases are cut when a batch is ready, so a milestone no longer
+implies a version. With the constraint gone, the argument for scattering
+goes with it - and scattering had a real cost, because it made the
+testing work invisible as a body of work and left each release
+carrying a test refactor that had nothing to do with its theme.
+
+**What the work is.** Three strands.
+
+*Coverage and correctness of the harness itself*:
+[#433](https://github.com/greta-dev/greta/issues/433) (get as close to
+100% coverage as is sensible),
+[#727](https://github.com/greta-dev/greta/issues/727) and
+[#751](https://github.com/greta-dev/greta/issues/751) (tests for
+`check_for_free_state_error()` and `as_tf_function()`, both currently
+untested),
+[#596](https://github.com/greta-dev/greta/issues/596) (edge cases for
+`gradient_descent()`), and
+[#723](https://github.com/greta-dev/greta/issues/723) (break up the
+`check_*` functions in `test_posteriors.R`, which are what the
+posterior checks actually assert through).
+
+*Modernising testthat usage*:
+[#563](https://github.com/greta-dev/greta/issues/563) and
+[#591](https://github.com/greta-dev/greta/issues/591) (`expect_no_error()`
+and friends over the home-grown `expect_ok`),
+[#715](https://github.com/greta-dev/greta/issues/715) (custom
+expectations written the formal way),
+[#695](https://github.com/greta-dev/greta/issues/695) (snapshot tests
+for `calculate()`), and
+[#395](https://github.com/greta-dev/greta/issues/395) (`patrick` for
+the parameterised cases).
+
+*Making the suite runnable*:
+[#624](https://github.com/greta-dev/greta/issues/624) (speed),
+[#708](https://github.com/greta-dev/greta/issues/708) (replace
+`skip_if_not(check_tf_version())` with something that does not silently
+skip everything when Python is missing), and
+[#408](https://github.com/greta-dev/greta/issues/408) (dockerfiles for
+development and for users).
+
+**Start with [#708](https://github.com/greta-dev/greta/issues/708).** A test suite that skips silently when the Python
+stack is unavailable reports success while testing nothing, which makes
+every other issue in this milestone harder to reason about. The Geweke
+gate is the precedent: `test_posteriors_geweke.R` disabled itself
+outright until August 2026, and nobody noticed because the run was
+green.
+
+## Sprint item: the conformance suite {#sec-conformance}
+
+*Not a GitHub issue, and not yet agreed.* This originated in the design
+book's initial draft (commit `96c09a1`, July 2026) rather than in any issue or
+maintainer decision, and it has been carried through every restructure since
+without sign-off. Treat it as a proposal. ::: {.callout-note collapse="true"}
+## Drafted issue body, unfiled
+
+Written but not filed, pending the decision above.
+
+*Proposed title: Build a conformance suite: pinned log-densities, gradients, and bijector round-trips*
+
+greta has no fast, deterministic way to answer the question "did this change
+alter the numbers greta produces?". That question comes up on every TensorFlow
+version bump, and it will come up constantly during the op-dictionary and
+node-registry rework, where the whole point is to change how the numbers are
+computed while keeping them identical.
+
+#### What exists today
+
+Seven `test_posteriors_*.R` files: `binomial`, `bivariate_normal`,
+`chi_squared`, `lkj`, `standard_uniform`, `wishart`, and `geweke`. Six run on
+every PR through `R-CMD-check`; the Geweke checks are gated behind
+`GRETA_GEWEKE=true` and run weekly, because they cost roughly 33 minutes for
+three samplers.
+
+These are end-to-end statistical checks. They catch gross breakage, but they
+are slow, stochastic, and they tell you a sampler is wrong rather than which
+log-density or gradient moved.
+
+#### What is missing
+
+A layer underneath them that is fast, deterministic, and specific:
+
+1. **Pinned log-densities.** For each distribution family, evaluate the
+   log-density at fixed parameter values and fixed data, computed once against
+   a known-good greta and stored as package data. greta has 29 distribution
+   constructors in `R/probability_distributions.R`.
+2. **Pinned gradients.** The same fixtures, comparing the gradient of the
+   log-density with respect to the free state. Samplers depend on the gradient,
+   not just the value, and a gradient can break while the density stays right.
+3. **Bijector round-trips.** For every constrained variable type, check that
+   the forward and inverse transforms compose to the identity, and that the
+   log-Jacobian adjustment is what it should be. The constructors are in
+   `variable_node$create_tf_bijector()` at `R/node_types.R:303`, dispatching to
+   the `tf_scalar_*_bijector()` family for the none/low/high/both/mixed
+   constraint cases.
+
+#### Why it belongs in the test-suite milestone
+
+It was originally scheduled alongside the TensorFlow unpin, on the reasoning
+that the unpin was the first change that would need it. The unpin shipped
+without it, so it is unbuilt and its first real consumer is now the backend
+work. Putting it here rather than there means that milestone does not have to
+build its own oracle before it can start.
+
+#### Acceptance
+
+- A fixture file of pinned values, generated by a documented script so it can
+  be regenerated deliberately rather than by accident.
+- Tests that compare against the fixtures within a stated tolerance, and that
+  fail loudly with the offending distribution named.
+- The suite runs in seconds, on every PR, without the Python stack having to
+  produce a posterior.
+
+#### Open questions for whoever picks this up
+
+- What tolerance? Too tight and a harmless TFP change breaks CI; too loose and
+  it stops catching anything.
+- Do the fixtures get regenerated on a deliberate numerical change (e.g. TFP
+  0.25 changing how `lkj_correlation()` and `wishart()` sample), and if so, what
+  is the review process for accepting a new fixture?
+- Is 29 distributions the right granularity, or should this cover a
+  representative subset plus every bijector?
+:::
+
+
+The plan's one genuinely new piece of test infrastructure: golden
+log-density and gradient values, bijector round-trips, and Geweke tests
+run against greta's *public* API. It is the acceptance oracle for any
+change to what computes greta's numbers - a TensorFlow version bump, the
+op dictionary and node registry in milestone 11, or a second backend.
+
+It was originally scheduled with the TensorFlow unpin, on the reasoning
+that the unpin was the first change that needed it. The unpin shipped
+without it, so the suite is unbuilt and its first real
+consumer is now the backend work. It belongs here rather than there
+because milestone 11 should not have to build its own oracle before it
+can start, and because everything else in this milestone is about
+making a green test run mean something - which is the same problem.
+
+**Approach.** Pin log-density and gradient values for a small set of
+models covering each distribution family, at fixed parameter values,
+computed once against a known-good greta and stored as data. Add
+bijector round-trip tests for every constrained variable type. Keep the
+Geweke checks as the end-to-end layer above both - they are already
+written, and as of August 2026 they are finally runnable ([#722](https://github.com/greta-dev/greta/issues/722)).
+
+### [Issue #395](https://github.com/greta-dev/greta/issues/395)
+
+- 2021-05-01
+- Up Next, impact-1
+- Explore {patrick} for parameterised testing.
+- finding: the thin-trio and distribution tests are natural parameterised cases.
+- fix: adopt {patrick} for the repetitive test families.
+- priority: low-medium.
+
+### [Issue #408](https://github.com/greta-dev/greta/issues/408)
+
+- 2021-05-05
+- documentation
+- Dockerfiles for development and users.
+- finding: largely superseded by the `uv` installer, but a reproducible dev image still helps CI.
+- fix: a minimal dev Dockerfile; document.
+- priority: low.
+
+### [Issue #433](https://github.com/greta-dev/greta/issues/433)
+
+- 2021-07-08
+- Up Next
+- Approach 100% code coverage.
+- finding: coverage is a moving target; the conformance suite raises it structurally.
+- fix: fill coverage gaps as milestones land; track the number.
+- priority: low.
+
+### [Issue #563](https://github.com/greta-dev/greta/issues/563)
+
+- 2022-10-11
+- Up Next
+- Explore `expect_no_error/warning/message/condition`.
+- finding: overlaps [#591](https://github.com/greta-dev/greta/issues/591); a test-idiom modernisation.
+- fix: adopt the `expect_no_*` family.
+- priority: low.
+
+### [Issue #591](https://github.com/greta-dev/greta/issues/591)
+
+- 2023-11-08
+- Up Next, low hanging fruit
+- Use `expect_no_error()` over the custom `expect_ok`.
+- finding: resolves with [#563](https://github.com/greta-dev/greta/issues/563).
+- fix: replace `expect_ok` calls.
+- priority: low (good first issue).
+
+### [Issue #596](https://github.com/greta-dev/greta/issues/596)
+
+- 2023-11-21
+- (none)
+- More tests and edge cases for `gradient_descent()`.
+- finding: a testing gap feeding the conformance suite.
+- fix: add optimiser edge-case tests.
+- priority: low.
+
+### [Issue #624](https://github.com/greta-dev/greta/issues/624)
+
+- 2024-04-22
+- Up Next, impact-1
+- Speed up the test suite.
+- finding: TF-backed tests dominate runtime; caching/parallelism helps.
+- fix: cache TF init; parallelise; skip strategically.
+- priority: medium.
+
+### [Issue #695](https://github.com/greta-dev/greta/issues/695)
+
+- 2024-08-14
+- (none)
+- Reconsider snapshot tests for `calculate`.
+- finding: snapshots are brittle across TF versions.
+- fix: replace fragile snapshots with value assertions.
+- priority: low.
+
+### [Issue #708](https://github.com/greta-dev/greta/issues/708)
+
+- 2024-08-19
+- (none)
+- Avoid `skip_if_not(check_tf_version())` in tests via an envvar.
+- finding: a testing-ergonomics tweak that overlaps the testing milestone.
+- fix: gate TF-dependent tests on an envvar set in CI.
+- priority: low.
+
+### [Issue #715](https://github.com/greta-dev/greta/issues/715)
+
+- 2024-08-21
+- (none)
+- Write custom expectations the formal testthat way.
+- finding: greta's ad-hoc expectations should follow testthat's contract.
+- fix: refactor to `expect_*` factories.
+- priority: low.
+
+### [Issue #723](https://github.com/greta-dev/greta/issues/723)
+
+- 2024-08-28
+- (none)
+- Separate key parts of the `check_*` functions in `test_posteriors.R`.
+- finding: the posterior-check helpers are monolithic; the conformance suite wants them modular.
+- fix: factor the checks; reuse in conformance.
+- priority: low.
+### [Issue #727](https://github.com/greta-dev/greta/issues/727)
+
+- 2024-10-15
+- (none)
+- Add tests for `check_for_free_state_error`.
+- finding: an untested checker.
+- fix: add coverage.
+- priority: low.
+### [Issue #751](https://github.com/greta-dev/greta/issues/751)
+
+- 2024-11-13
+- (none)
+- Add tests for `as_tf_function`.
+- finding: an untested entry point relevant to the fused path.
+- fix: add coverage.
+- priority: low.

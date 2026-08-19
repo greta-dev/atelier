@@ -1,0 +1,176 @@
+# MCMC ergonomics and documentation {#sec-mcmc-ergonomics}
+
+- The things that make fitting a model in greta pleasant rather than
+  possible: methods for getting at what the sampler did, sensible
+  defaults, progress reporting, and the documentation that explains
+  how to fit and troubleshoot a model. Grouping labels: the `mcmc`
+  cluster, `documentation`.
+- This is the third piece of the old 34-issue sampling milestone. It
+  depends on milestone 4 only where it touches the sampler interface;
+  most of it can be written at any time.
+
+**The shape of the work.** Three groups, loosely related.
+
+The **accessors** - [#439](https://github.com/greta-dev/greta/issues/439)
+(extract MCMC behaviour from a fitted model),
+[#649](https://github.com/greta-dev/greta/issues/649) (a `thin()`
+method), [#651](https://github.com/greta-dev/greta/issues/651)
+(splitting `calculate()` into separate functions) and
+[#731](https://github.com/greta-dev/greta/issues/731) (estimated time
+to fit) - are all "greta knows this, but will not tell you" problems.
+They want the sampler interface from milestone 4 to have settled on
+field names first, or they will be written twice.
+
+The **defaults**: [#294](https://github.com/greta-dev/greta/issues/294)
+argues the default number of chains is far too low, and
+[#413](https://github.com/greta-dev/greta/issues/413) that initial
+values should be drawn from the priors for any inference, not just
+some. Both change behaviour rather than adding capability, which is
+what makes this milestone a minor release rather than a patch.
+
+**Progress reporting** is one decision taken twice:
+[#773](https://github.com/greta-dev/greta/issues/773) asks for the
+progress bar to be abstracted, and
+[#450](https://github.com/greta-dev/greta/issues/450) asks whether
+`progressr` should be what sits behind it. Answer [#773](https://github.com/greta-dev/greta/issues/773) first; [#450](https://github.com/greta-dev/greta/issues/450) is
+then an implementation choice rather than an open question.
+
+The **documentation** issues - [#146](https://github.com/greta-dev/greta/issues/146), [#147](https://github.com/greta-dev/greta/issues/147), [#271](https://github.com/greta-dev/greta/issues/271), [#541](https://github.com/greta-dev/greta/issues/541), [#681](https://github.com/greta-dev/greta/issues/681), [#718](https://github.com/greta-dev/greta/issues/718) -
+are independent of everything, including each other. They are the
+natural filler for a patch release, and [#541](https://github.com/greta-dev/greta/issues/541) (a guide to fitting and
+troubleshooting MCMC) is the one most likely to reduce the issue
+tracker's own inflow.
+
+### [Issue #146](https://github.com/greta-dev/greta/issues/146)
+
+- 2018-03-14
+- documentation
+- A benchmarking section on the website.
+- finding: a 2018 idea, currently unowned (appendix close-candidate).
+- fix: either a modern benchmarking page or close as superseded.
+- priority: low.
+
+### [Issue #147](https://github.com/greta-dev/greta/issues/147)
+
+- 2018-03-14
+- documentation
+- A vignette on writing efficient greta code.
+- finding: pairs with the performance findings ([#210](https://github.com/greta-dev/greta/issues/210), [#358](https://github.com/greta-dev/greta/issues/358)).
+- fix: an "efficient greta" article once the speed work lands.
+- priority: low-medium.
+
+### [Issue #271](https://github.com/greta-dev/greta/issues/271)
+
+- 2019-03-04
+- documentation
+- Example code for `opt()` in the reference manual.
+- finding: pairs with [#681](https://github.com/greta-dev/greta/issues/681) (opt docs).
+- fix: add worked `opt()` examples.
+- priority: low.
+
+### [Issue #294](https://github.com/greta-dev/greta/issues/294)
+
+- 2019-07-24
+- (none)
+- Increase the default number of chains substantially.
+- finding: the recorded benchmark - 4 chains → 185 eff samples/s; 1024 → 12,980 - argues chains should be a tensor dimension by default.
+- fix: scope chains-as-a-dimension; prototype pre-warmed mirai daemons; a 2027 speed release.
+- priority: medium (scoping this milestone, shipping later).
+
+### [Issue #413](https://github.com/greta-dev/greta/issues/413)
+
+- 2021-05-10
+- (none)
+- Sample initial values from priors for any inference.
+- finding: generalised by [#584](https://github.com/greta-dev/greta/issues/584) ("how greta initialises values by default").
+- fix: implement prior-sampling init; resolves with [#584](https://github.com/greta-dev/greta/issues/584)/#440.
+- priority: medium.
+
+### [Issue #439](https://github.com/greta-dev/greta/issues/439)
+
+- 2021-09-20
+- Up Next
+- Methods to extract MCMC behaviour (adaptation, step sizes) from a model.
+- problem: sampler diagnostics are buried in the sampler object.
+- finding: relates to the sampler-interface work (milestone 6) that names the boundary.
+- fix: a read-only `mcmc_diagnostics(draws)` accessor on `greta_mcmc_list` that reads the fields the sampler already accumulates (`log_epsilon_bar`, `mean_accept_stat`, `diag_sd`, `numerical_rejections`, `accept_history`; `R/sampler_class.R:10-32`) via `get_model_info()` and returns a per-sampler data frame; re-point at the milestone-6 interface once it stabilises field names.
+- **the proposed per-chain return shape is wrong — verified.** There is **one sampler object serving all chains**, not one per chain (`n samplers: 1`, `n_chains: 2`), so `lapply(info$samplers, ...)` yields a single element and the acceptance test's `expect_equal(nrow(as.data.frame(diag)), 2)` ("one row per chain") **will fail**. `mean_accept_stat` and `log_epsilon_bar` are scalars shared across chains; the only per-chain quantity is `accept_history` (iterations x chains). Rework the shape to "one row per **sampler**, per-chain values derived from `accept_history`".
+- also pin the semantics before exposing anything: the raw `mean_accept_stat` reads **0.042** against an `accept_target` of 0.651, which is not a run-level acceptance rate — it looks like residual state from the final burst. Publishing it as `accept_rate` would have users conclude their sampler is broken. Prefer `colMeans(accept_history)`, which also gives the per-chain shape the issue asks for.
+- context: convergence diagnostics are already covered via coda (`effectiveSize()`, `gelman.diag()`) and `posterior::summarise_draws()`. What is genuinely missing is **sampler/adaptation** behaviour, which today requires digging into an undocumented `model_info` attribute and an R6 internal. A public accessor is warranted.
+- proposed fix: see [fixes/issue-439.md](fixes/issue-439.md).
+- priority: medium.
+- defect in the proposed fix: the acceptance test in `fixes/issue-439.md` does not run. It builds on `distribution(as_data(rnorm(10))) <- normal(mu, 1)`, which parses but fails at runtime with *"target of assignment expands to non-language object"* - a replacement function needs an assignable name on the left, so the test fails at model definition, before reaching the behaviour under test. Assign first: `y <- as_data(rnorm(10))`, then `distribution(y) <- normal(mu, 1)`.
+- defect in the proposed fix: the per-chain return shape is wrong. There is **one sampler object serving all chains**, not one per chain, so `lapply(info$samplers, ...)` yields a single element and the acceptance test's `expect_equal(nrow(as.data.frame(diag)), 2)` ("one row per chain") **will fail**. `mean_accept_stat` and `log_epsilon_bar` are scalars shared across chains; the only per-chain quantity is `accept_history` (iterations x chains), so per-chain values must be *derived* from `colMeans(accept_history)`. Related: the raw `mean_accept_stat` reads 0.042 against an `accept_target` of 0.651 - it is not a run-level acceptance rate, and exposing it as one would have users conclude their sampler is broken.
+
+### [Issue #450](https://github.com/greta-dev/greta/issues/450)
+
+- 2021-11-03
+- later
+- Evaluate the progressr package.
+- finding: overlaps the progress-bar abstraction ([#773](https://github.com/greta-dev/greta/issues/773)).
+- fix: assess progressr as the progress backend.
+- priority: low.
+
+### [Issue #541](https://github.com/greta-dev/greta/issues/541)
+
+- 2022-07-08
+- (none)
+- A guide/FAQ for fitting and troubleshooting MCMC.
+- finding: high-value user guidance; pairs with the sampler docs.
+- fix: an MCMC troubleshooting FAQ.
+- priority: medium.
+
+### [Issue #649](https://github.com/greta-dev/greta/issues/649)
+
+- 2024-07-30
+- (none)
+- A `thin()` method for calculate/mcmc objects.
+- finding: post-processing convenience on draws.
+- fix: implement `thin()`; document with the sampler docs.
+- priority: low.
+
+### [Issue #651](https://github.com/greta-dev/greta/issues/651)
+
+- 2024-07-30
+- (none)
+- Split `calculate()` into separate functions.
+- finding: a refactor of the calculate path (simulate vs evaluate).
+- fix: factor calculate into composable pieces; keep the public API.
+- priority: low.
+
+### [Issue #681](https://github.com/greta-dev/greta/issues/681)
+
+- 2024-08-08
+- Up Next
+- Documentation for `opt()`.
+- finding: pairs with [#271](https://github.com/greta-dev/greta/issues/271).
+- fix: complete the `opt()` reference and examples.
+- priority: low.
+
+### [Issue #718](https://github.com/greta-dev/greta/issues/718)
+
+- 2024-08-22
+- (none)
+- Document which samplers greta provides in `?samplers`.
+- finding: pairs with the milestone-5 sampler work (new adaptive HMC/NUTS).
+- fix: update `?samplers` as samplers land.
+- priority: low.
+
+### [Issue #731](https://github.com/greta-dev/greta/issues/731)
+
+- 2024-10-16
+- (none)
+- A function estimating time to model fit.
+- finding: a progress/ETA estimate from early iterations.
+- fix: extrapolate from warmup timing; surface an ETA.
+- priority: low.
+
+### [Issue #773](https://github.com/greta-dev/greta/issues/773)
+
+- 2025-03-11
+- (none)
+- Abstract the progress bars.
+- finding: sampler progress reporting is entangled with the sampler loop.
+- fix: a progress abstraction usable across samplers and optimisers.
+- priority: low.
+

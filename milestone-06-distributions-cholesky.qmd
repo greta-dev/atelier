@@ -1,0 +1,297 @@
+# Distributions, and untying the cholesky/LKJ knot {#sec-distributions}
+
+- Fix the distribution-level bugs and finally untangle the
+  cholesky/LKJ representation issues that have run since 2017. Grouping
+  labels: the `distributions` cluster (which overlaps
+  greta.distributions). The full history is collated in
+  @sec-cholesky - read it before touching this code.
+- These issues share machinery: the wishart/LKJ log-probs, the
+  representations (cholesky-factor) system, and how initial values are
+  set on distributions returned via an operation node.
+
+**The through-line.** [#339](https://github.com/greta-dev/greta/issues/339)
+named the debt in 2020: wishart/LKJ return "an operation node
+following a distribution... a bit hacky", which is why users cannot
+set initial values on them ([#440](https://github.com/greta-dev/greta/issues/440),
+[#502](https://github.com/greta-dev/greta/issues/502)). The sketched fix is a `transformed_variable` node
+([#339](https://github.com/greta-dev/greta/issues/339)) plus the working prior-sampling prototype in
+[#584](https://github.com/greta-dev/greta/issues/584). Code anchors:
+`R/probability_distributions.R` (wishart/LKJ log-probs and the [#737](https://github.com/greta-dev/greta/issues/737)
+note), `R/node_class.R` (sampling-mode representation surgery),
+`R/tf_functions.R` (`CorrelationCholesky`, `FillScaleTriL`).
+
+**[#692](https://github.com/greta-dev/greta/issues/692) is not in this milestone, and that is deliberate.** Which
+triangle greta's cholesky factor uses is squarely a distributions
+question, and the fix will touch the same representation machinery as
+everything above. But it is a **breaking change**, and the plan batches
+it with the other known breaking change,
+[#648](https://github.com/greta-dev/greta/issues/648), so that users
+migrate once rather than twice. Its write-up therefore sits in
+milestone 8 (@sec-printing). Expect to do the work with this milestone
+and release it with that one - and read its block before touching
+`chol()`, because the July 2026 pass recorded it as already fixed and
+was wrong.
+
+## The cholesky/LKJ history {#sec-cholesky}
+
+Collated from every cholesky-related issue, closed and open (July
+2026). The short version: correlation/covariance variables are
+modelled via their cholesky factors under the hood; a
+"representations" system was built so downstream operations could
+reuse those factors; the TF2 port broke it; the 0.5.0 fixes restored
+correctness at the cost of the fast path; two bugs and one diagnosis
+remain open.
+
+**The arc:**
+
+- **Founding intent** (2017-18):
+  [#77](https://github.com/greta-dev/greta/issues/77) added LKJ ("oh
+  shit. this ain't easy." - from the thread);
+  [#86](https://github.com/greta-dev/greta/issues/86) founded the
+  representations system (skip re-factorisation by propagating
+  cholesky factors);
+  [#107](https://github.com/greta-dev/greta/issues/107) and
+  [#281](https://github.com/greta-dev/greta/issues/281) contain
+  the clearest explanations of the design and
+  `chol_to_symmetric`.
+- **The acknowledged debt** (2020):
+  [#339](https://github.com/greta-dev/greta/issues/339) - wishart/LKJ
+  return "an operation node following a distribution... a bit hacky",
+  which is why users cannot set initial values on them
+  ([#440](https://github.com/greta-dev/greta/issues/440),
+  [#502](https://github.com/greta-dev/greta/issues/502)). Proposed
+  fix: a `transformed_variable` node with bijector-based reversal.
+- **TF2 breakage** (2022-24):
+  [#560](https://github.com/greta-dev/greta/issues/560)
+  (`input_output_cholesky` must be FALSE for sampling, TRUE for
+  log-prob); [#585](https://github.com/greta-dev/greta/issues/585)
+  ("cholesky factors all out of whack in calculate" - the
+  ones-matrix and post-MCMC overwrite);
+  [#593](https://github.com/greta-dev/greta/issues/593) (the most
+  detailed debugging thread: the `$representation`-vs-`$representations` typo,
+  tf-name collisions, and the unresolved design note that
+  "everything that is a representation of something else needs to
+  know what it is a representation of... this could be infinitely
+  recursive").
+- **The cost of correctness** (2024): PR
+  [#637](https://github.com/greta-dev/greta/pull/637) removed the
+  representations fast path to get correct answers;
+  [#642](https://github.com/greta-dev/greta/issues/642) benchmarks
+  the cost - `calculate(chol(Sigma))` on a 3000×3000 wishart went
+  from ~56 ms to ~13 s (~250×).
+- **The bias fixes** (Nov 2024, greta 0.5.0):
+  [#729](https://github.com/greta-dev/greta/issues/729)
+  (`FillTriangular` → `FillScaleTriL`), then PR
+  [#734](https://github.com/greta-dev/greta/pull/734) added the
+  missing `CholeskyOuterProduct` log-det-Jacobian adjustment to
+  wishart and LKJ log-probs and the Geweke tests that verify them.
+  [#737](https://github.com/greta-dev/greta/issues/737) was born
+  here: greta's LKJ normalising constant disagrees with the
+  test-helper reference; density-exactness tests were disabled
+  rather than diagnosed.
+
+**Still open:**
+[#440](https://github.com/greta-dev/greta/issues/440) (initials -
+the sketched fix is
+[#339](https://github.com/greta-dev/greta/issues/339)'s
+`transformed_variable` plus the complete prior-sampling
+prototype in
+[#584](https://github.com/greta-dev/greta/issues/584): "this
+shouldn't be a helper function, it should be how greta initialises
+values by default");
+[#737](https://github.com/greta-dev/greta/issues/737) (normalising
+constant, undiagnosed);
+[#589](https://github.com/greta-dev/greta/issues/589) (chol of a
+computed covariance fails - noting the reprex's matrix is not
+actually guaranteed positive-definite, so the right fix may be a
+graceful error);
+[#347](https://github.com/greta-dev/greta/issues/347) (possibly fixed
+by 0.5.0, never re-verified); and a June 2025 recurrence report on
+[#732](https://github.com/greta-dev/greta/issues/732).
+[#692](https://github.com/greta-dev/greta/issues/692) (the
+lower/upper-triangular convention) **is now closed**: 0.6.0 already
+returns an upper factor matching `base::chol()`. Treat the orientation
+as settled when reading the threads below - several predate the fix and
+discuss it as an open choice.
+
+**Read-first shortlist for a fixer:** the
+[#593](https://github.com/greta-dev/greta/issues/593) thread; the
+[#585](https://github.com/greta-dev/greta/issues/585) symptom
+taxonomy; PR [#734](https://github.com/greta-dev/greta/pull/734)'s
+commits (especially the CholeskyOuterProduct adjustment);
+[#560](https://github.com/greta-dev/greta/issues/560)'s
+`input_output_cholesky` rule;
+[#642](https://github.com/greta-dev/greta/issues/642)'s benchmark;
+and [#339](https://github.com/greta-dev/greta/issues/339) +
+[#584](https://github.com/greta-dev/greta/issues/584) as the design
+for the initials fix. Code anchors:
+`R/probability_distributions.R` (wishart/LKJ log-probs and the
+[#737](https://github.com/greta-dev/greta/issues/737) note),
+`R/node_class.R` (sampling-mode representation surgery),
+`R/tf_functions.R` (`CorrelationCholesky`, `FillScaleTriL`).
+
+
+### [Issue #159](https://github.com/greta-dev/greta/issues/159)
+
+- 2018-05-03
+- (none)
+- The wishart error for insufficient degrees of freedom is unclear.
+- problem: cryptic failure when df < dimension.
+- finding: a validation gap in the wishart constructor.
+- fix: check df up front; clear error. Batches with [#646](https://github.com/greta-dev/greta/issues/646).
+- priority: medium.
+
+### [Issue #252](https://github.com/greta-dev/greta/issues/252)
+
+- 2018-11-19
+- enhancement
+- A `probit()` function.
+- problem: greta has `iprobit` links but not a plain probit helper.
+- finding: a thin transform over existing ops (`R/transforms.R`).
+- fix: add `probit()`; document alongside the link functions.
+- priority: low.
+
+### [Issue #264](https://github.com/greta-dev/greta/issues/264)
+
+- 2019-02-06
+- (none)
+- An ordered logit distribution.
+- problem: no ordinal-outcome distribution in greta.
+- finding: TFP has an `OrderedLogistic`; a new distribution wrapper.
+- fix: wrap it as a greta distribution; overlaps greta.distributions.
+- priority: medium.
+
+### [Issue #274](https://github.com/greta-dev/greta/issues/274)
+
+- 2019-03-27
+- (none)
+- Bad variable constraints for the pareto distribution.
+- problem: the support/constraint on pareto is wrong.
+- finding: a constraint-definition bug in the distribution.
+- fix: correct the bijector/support; add a sampling test.
+- priority: medium.
+
+### [Issue #288](https://github.com/greta-dev/greta/issues/288)
+
+- 2019-06-27
+- documentation
+- Include the Stagnant WinBUGS example.
+- finding: a classic example demonstrating change-points.
+- fix: port Stagnant into the examples gallery.
+- priority: low.
+
+### [Issue #339](https://github.com/greta-dev/greta/issues/339)
+
+- 2020-01-28
+- documentation
+- Add a `transformed_variable` node type.
+- problem: the acknowledged design debt behind the initials failures.
+- finding: the design is the fix for [#440](https://github.com/greta-dev/greta/issues/440)/#502; pairs with [#584](https://github.com/greta-dev/greta/issues/584)'s prototype.
+- fix: implement the node with bijector-based reversal.
+- priority: high (unblocks initials).
+
+### [Issue #347](https://github.com/greta-dev/greta/issues/347)
+
+- 2020-03-24
+- bug
+- `calculate()` fails for hierarchical models.
+- finding: tied to the representations/cholesky surgery in `R/node_class.R`; may be fixed since 0.5.0.
+- fix: re-verify on 0.6; fix or add a regression test.
+- priority: medium.
+
+### [Issue #406](https://github.com/greta-dev/greta/issues/406)
+
+- 2021-05-04
+- documentation
+- Misspecified horseshoe prior examples.
+- finding: an example-correctness fix.
+- fix: correct the horseshoe examples; add a working template.
+- priority: low.
+### [Issue #428](https://github.com/greta-dev/greta/issues/428)
+
+- 2021-06-09
+- (none)
+- Dodgy simulations from truncated distributions.
+- problem: truncated-distribution sampling is biased/incorrect.
+- finding: truncation bijector or bounds handling.
+- fix: correct truncated sampling; Geweke-check against the density.
+- priority: medium.
+
+### [Issue #440](https://github.com/greta-dev/greta/issues/440)
+
+- 2021-09-25
+- (none)
+- `initial_values` fail with LKJ priors.
+- problem: LKJ is returned via an operation node, so initials can't attach ([#339](https://github.com/greta-dev/greta/issues/339)).
+- finding: the [#339](https://github.com/greta-dev/greta/issues/339) + [#584](https://github.com/greta-dev/greta/issues/584) route is the sketched fix.
+- fix: land `transformed_variable` so initials attach to the underlying variable.
+- priority: high.
+
+### [Issue #584](https://github.com/greta-dev/greta/issues/584)
+
+- 2023-02-27
+- Up Next
+- A helper to provide better initial values.
+- finding: the prototype argues initials-from-priors "should be how greta initialises values by default", not a helper.
+- fix: adopt prior-sampling as the default init; generalises [#413](https://github.com/greta-dev/greta/issues/413).
+- priority: high (pairs with [#440](https://github.com/greta-dev/greta/issues/440)/#339).
+
+### [Issue #589](https://github.com/greta-dev/greta/issues/589)
+
+- 2023-10-18
+- (none)
+- Cholesky fails on a non-M1 system.
+- problem: a reprex whose matrix isn't guaranteed positive-definite.
+- finding: the right fix may be a graceful error, not forcing a factorisation.
+- fix: detect non-PD input; error clearly.
+- priority: medium.
+
+### [Issue #646](https://github.com/greta-dev/greta/issues/646)
+
+- 2024-07-29
+- Up Next, low hanging fruit
+- Capture the wishart wrong-parameter error nicely.
+- finding: pairs with [#159](https://github.com/greta-dev/greta/issues/159) (wishart df).
+- fix: validate parameters; friendly error.
+- priority: low.
+
+### [Issue #737](https://github.com/greta-dev/greta/issues/737)
+
+- 2024-11-01
+- (none)
+- Add a reference implementation of the LKJ normalising constant.
+- problem: greta's LKJ normalising constant disagrees with the test reference; exactness tests were disabled, not diagnosed.
+- finding: the discrepancy lives in the LKJ log-prob in `R/probability_distributions.R`.
+- fix: derive the reference; reconcile; re-enable the disabled tests.
+- priority: high (correctness).
+
+### [Issue #748](https://github.com/greta-dev/greta/issues/748)
+
+- 2024-11-12
+- (none)
+- A TF dimension error when initialising a model with a simplex variable.
+- problem: simplex init shape mismatch; overlaps [#749](https://github.com/greta-dev/greta/issues/749).
+- finding: simplex bijector rank handling at init.
+- fix: correct the init shape; shared test with [#749](https://github.com/greta-dev/greta/issues/749).
+- priority: medium.
+
+### [Issue #749](https://github.com/greta-dev/greta/issues/749)
+
+- 2024-11-12
+- (none)
+- A confusing error when initialising a simplex.
+- finding: the user-facing message for the [#748](https://github.com/greta-dev/greta/issues/748) failure.
+- fix: clearer error; resolves with [#748](https://github.com/greta-dev/greta/issues/748).
+- priority: medium.
+
+### [Issue #761](https://github.com/greta-dev/greta/issues/761)
+
+- 2025-01-23
+- (none)
+- Enable mixtures of continuous distributions with point masses.
+- problem: point-mass components in mixtures aren't supported.
+- finding: overlaps PR [#764](https://github.com/greta-dev/greta/pull/764) and greta.distributions#34 - ownership must be decided.
+- fix: land point-mass support in one package; wire into `mixture()`.
+- priority: medium.
+
+

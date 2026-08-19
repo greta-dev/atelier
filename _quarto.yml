@@ -1,0 +1,33 @@
+project:
+  type: book
+
+book:
+  title: "greta milestones"
+  author: "Nicholas Tierney and Nick Golding"
+  date: today
+  chapters:
+    - index.qmd
+    - milestones.qmd
+    - milestone-01-installation.qmd
+    - milestone-02-sampling-bugs.qmd
+    - milestone-03-greta-arrays.qmd
+    - milestone-04-adaptive-sampling.qmd
+    - milestone-05-mcmc-ergonomics.qmd
+    - milestone-06-distributions-cholesky.qmd
+    - milestone-07-test-suite.qmd
+    - milestone-08-printing-errors.qmd
+    - milestone-09-session-portability.qmd
+    - milestone-10-gpu-hardware.qmd
+    - milestone-11-backend-abstraction.qmd
+    - milestone-12-advanced-modelling.qmd
+    - milestone-13-tooling-housekeeping.qmd
+    - greta-distributions.qmd
+    - appendix-greta-checks.qmd
+
+bibliography: references.bib
+
+format:
+  html:
+    theme: cosmo
+  pdf:
+    documentclass: scrreprt

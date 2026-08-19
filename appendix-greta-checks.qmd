@@ -1,0 +1,61 @@
+# Appendix: greta.checks {#sec-greta-checks}
+
+
+Not a greta milestone - a **separate package**, and it already exists.
+[`lionel68/greta.checks`](https://github.com/lionel68/greta.checks) is
+CC0-licensed, carries seven R files (`bayes_R2.r`,
+`pp_check.greta_array.r`, `pp_check.greta_mcmc_list.r`,
+`prior_check.r`, `rmse.r`, `simulate_residual.r`), and was last
+updated in July 2022 against greta 0.4.2. Golding endorsed the
+approach on [#345](https://github.com/greta-dev/greta/issues/345) in 2020: *"`greta.checks` - a perfect name for this
+package."*
+
+**The plan:** approach Lionel about bringing it into greta-dev
+(CC0 means there is no licence friction either way), update it from
+greta 0.4.2 to 0.6.x, and release 0.1.0.
+
+**It costs much less than this plan assumed.** greta.checks was cloned,
+installed against greta 0.6.0 and run: **it already works, with zero
+code changes.** It installs cleanly (the only complaint is a placeholder
+ORCID in `DESCRIPTION`), its test suite passes `[ FAIL 0 | WARN 0 | SKIP
+0 | PASS 8 ]`, and every exported function - `bayes_R2()`, `rmse()`,
+`prior_check()`, both `pp_check()` methods, `simulate_residual()` -
+produces correct output against 0.6.0. `pp_check()` even survives the
+ggplot2 S7 transition.
+
+The feared blocker is a non-issue: `op <- .internals$nodes$constructors$op`
+appears at the top of six R files and is **never used in any of them** -
+copy-paste from the greta package template. Deleting it, along with the
+unused `@importFrom tensorflow tf`, **removes the tensorflow dependency
+outright**.
+
+So this is a packaging and adoption job, not a migration job. `R CMD
+check` reports 3 WARNINGs and 1 NOTE, none of them greta-version
+related: an S3 generic/method signature mismatch (`pp_check.greta_array`
+names its first argument `y`, but `bayesplot::pp_check` dispatches on
+`object`), a duplicated Rd alias, an undocumented re-export, and two
+bare ggplot `aes` names.
+
+| Scope | Estimate |
+|---|---|
+| "Installs and passes check on 0.6.x" | **2-4 h** |
+| Proper adoption to a greta-dev quality bar | **11-19 h** |
+
+**The largest single line item is the test suite** (3-5 h of the total).
+Seven of its eight assertions are `expect_error(..., NA)` or
+`expect_s3_class()` smoke tests with the numeric comparisons commented
+out (`#expect_equal(round(r2[,1], 2), 0.02)`). It passes, but it is not
+verifying correctness. A design issue worth fixing during adoption:
+`pp_check.greta_array` is a **prior** predictive check bound to
+bayesplot's **posterior** predictive generic - semantically wrong, and
+the direct cause of the first warning.
+
+- [Issue #345](https://github.com/greta-dev/greta/issues/345): Bayesian R-squared for greta models, 2020-02-26 - **stays open, pending the adoption decision.** `bayes_R2()` was run against greta 0.6.0 and returns a correct median/mad/CI matrix (median 0.216, CI [0.146, 0.286]), so if greta.checks is adopted this closes with no core greta code. The plan previously recorded it as closed-as-delivered; that verdict was contingent on the adoption going ahead, and it has not. Its write-up is in @sec-advanced.
+- [Issue #519](https://github.com/greta-dev/greta/issues/519): implement DIC and other model-evaluation metrics, 2022-05-04 - **stays open, the gap is live.** There is no pointwise log-likelihood anywhere in greta 0.6.0, so DIC/WAIC/LOO have nothing to build on; this remains blocked behind [#739](https://github.com/greta-dev/greta/issues/739). greta.checks confirms the same hole independently - its `pp_check.greta_mcmc_list` explicitly errors on `type = "loo_pit"` with "LOO ppc function are not supported".
+
+Note that [#439](https://github.com/greta-dev/greta/issues/439)
+(extracting MCMC behaviour) **stays in core greta**, in milestone 5 -
+it is sampler introspection, not model checking.
+
+---
+

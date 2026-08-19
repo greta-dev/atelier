@@ -1,0 +1,256 @@
+# Advanced modelling: marginalisation, decentring, and new distributions {#sec-advanced}
+
+
+- The 2027 payoff the whole plan builds toward: graph-rewriting
+  features that need the flat registry underneath them, plus the
+  new-distribution and module infrastructure. Grouping label: the
+  `advanced-features` cluster.
+- Marginalisation and decentring *transform the DAG* - replace a
+  discrete node with a sum over its support; reparameterise a
+  subgraph. Rewriting plain-data records in a flat table is easy;
+  rewriting a doubly-linked R6 object graph is not - which is why this
+  milestone follows milestone 11.
+
+**The design already exists.** The intended *usage* is in
+[#157](https://github.com/greta-dev/greta/issues/157) (helpers like
+`marginal_poisson()`, a general `marginalise()` syntax); the intended
+*mechanism* is in the
+[#344](https://github.com/greta-dev/greta/pull/344) draft (scalar
+discrete variables, and multivariate normals via Laplace
+approximation). Both are read-first material for the restart.
+
+
+## Sprint item: marginalisation
+
+- **this needs no new issue: it is
+  [#157](https://github.com/greta-dev/greta/issues/157).** #157 already asks
+  for both the specific helpers (`marginal_poisson()`) and the general
+  `marginalise()` interface, so what follows is design detail *for* #157 rather
+  than separate work. It comes from the
+  [#322](https://github.com/greta-dev/greta/issues/322) sprint plan (§3,
+  "Marginalisation"); the draft mechanism is PR
+  [#344](https://github.com/greta-dev/greta/pull/344), kept open under this
+  milestone for the design it records.
+- Finish and release the marginalisation interface: integrate discrete
+  random variables out of a model, and integrate out *a priori*
+  multivariate-normal variables via the Laplace approximation.
+- branch intent: PR [#344](https://github.com/greta-dev/greta/issues/344) ("An interface for marginalisation of random
+  variables … initially just scalar discrete variables, and
+  multivariate normal variables via Laplace approximation") on
+  `feature/marginalise`. Appendix triage closes the 6-year-stale PR
+  but preserves its design; the rebased variants
+  (`feature-marginalise-rebased/-squash/-update`) are the restart
+  material.
+- mechanism: **discrete marginalisation** replaces a discrete latent
+  node with an explicit sum over its finite support in the model's
+  log-probability - a DAG rewrite. **Laplace marginalisation**
+  integrates out *a priori* MVN variables with a Gaussian
+  approximation, dropping them from the free state. Both let HMC run
+  on a smaller, smoother, fully-continuous parameter space.
+- interface ([#157](https://github.com/greta-dev/greta/issues/157)): distribution-style helpers such as
+  `marginal_poisson()` for the common conjugate/discrete cases, plus a
+  general `marginalise()` naming which variables to integrate out.
+- finding: both are graph rewrites - delete a node, splice in a sum or
+  a Laplace term - which is precisely what the flat node registry
+  (milestone 11) makes tractable; rewriting the doubly-linked R6 node
+  graph is the blocker today. Depends on milestone 11.
+- fix: rebase [#344](https://github.com/greta-dev/greta/issues/344)'s mechanism onto the flat registry; implement
+  `marginalise()` and the `marginal_*()` helpers; write the
+  explanatory documentation (§3.5) that marginalisation needs, since
+  it is unfamiliar to most MCMC users.
+- priority: medium (2027 headline; needs milestone 11 first).
+
+
+## Sprint item: sampling discrete variables
+
+- not a GitHub issue - from the [#322](https://github.com/greta-dev/greta/issues/322) sprint plan (§4, "Sampling
+  discrete variables"). ::: {.callout-note collapse="true"}
+## Drafted issue body, unfiled
+
+Written but not filed.
+
+*Proposed title: Allow discrete random variables to be sampled, not just observed*
+
+greta's discrete distributions can only ever be *data*. You can write
+`distribution(y) <- poisson(lambda)` where `y` is observed, but you cannot make
+a Poisson variable a free parameter and have greta sample it.
+
+#### What happens now
+
+`check_unfixed_discrete_distributions()` (`R/checkers.R:1687`), called from
+`model()` at `R/greta_model_class.R:97`, walks the DAG and aborts if any
+distribution node is discrete and its target is not a data node:
+
+> Model contains a discrete random variable that doesn't have a fixed value, so
+> inference cannot be carried out.
+
+That guard is correct given the samplers available. HMC and its variants need a
+continuous, differentiable free state, and there is nothing to differentiate
+through a discrete support. Nine distributions carry `discrete = TRUE` in
+`R/probability_distributions.R`: `bernoulli`, `binomial`, `beta_binomial`,
+`poisson`, `negative_binomial`, `hypergeometric`, `dirichlet_multinomial`,
+`multinomial` and `categorical`.
+
+#### What it would take
+
+Three pieces, in order:
+
+1. **A latent discrete node.** Let a discrete distribution define a variable
+   node rather than only accept a data target, which means relaxing the
+   variable and free-state machinery where it assumes continuous support.
+2. **A discrete sampler.** A categorical or Metropolis kernel over the discrete
+   support, alongside `hmc()` and `adaptive_hmc()`. TFP supplies discrete
+   transition kernels to build on.
+3. **A Gibbs driver.** Partition the free state into discrete and continuous
+   blocks and alternate: HMC on the continuous block given the current discrete
+   draw, the discrete kernel on the discrete block given the current continuous
+   draw.
+
+#### Relationship to marginalisation
+
+This is the complement of #157. Marginalising a discrete variable integrates it
+out so HMC can run on a smaller, smooth space; sampling it keeps it in the model
+and gives it a kernel of its own. *Marginalise where you can, sample where you
+must.* The two share the same free-state work, so whichever is done first should
+expect to carry some of the other's cost.
+
+#### Sequencing
+
+This is a large internals change and it wants the flat node registry
+(milestone 11) underneath it — partitioning the free state and swapping kernels
+per block means rewriting the graph, which is what the registry work makes
+tractable. Doing it against the current doubly-linked R6 node objects is the
+blocker today.
+
+#### Acceptance
+
+Validate against discrete-latent posteriors with known answers, using the Geweke
+harness (`tests/testthat/test_posteriors_geweke.R`, run with
+`GRETA_GEWEKE=true`). A discrete sampler that passes Geweke on a model whose
+posterior is known analytically is the bar; anything less and we will not know
+whether the kernel is correct.
+:::
+
+- Let greta sample discrete random *variables*: discrete latent
+  variables, discrete-only samplers, and Gibbs alternation between
+  discrete and continuous parameter spaces.
+- problem: greta's discrete distributions (`bernoulli`, `binomial`,
+  `poisson`, … all carry `discrete = TRUE` in
+  `R/probability_distributions.R`) can currently only be *observed
+  data* in a likelihood, never free variables - because the
+  HMC/leapfrog samplers need a continuous, differentiable free state.
+- finding, internals refactor: (1) allow a discrete distribution to
+  define a *latent variable* node, relaxing the variable/free-state
+  machinery that assumes continuous support; (2) add discrete-only
+  samplers - a categorical/Metropolis kernel over the discrete support
+  (TFP supplies discrete transition kernels); (3) partition the free
+  state into discrete and continuous blocks and Gibbs-alternate: HMC
+  on the continuous block given the discrete draw, a discrete kernel
+  on the discrete block given the continuous draw. This is the
+  internals redesign [#322](https://github.com/greta-dev/greta/issues/322) §4 flags, and it rides the same flat-registry
+  work as everything else in this milestone (milestone 11).
+- relation: the complement to marginalisation above - marginalise
+  where you can, sample where you must - so the two sprint items share
+  the free-state/registry refactor.
+- fix: introduce a discrete free-state partition; add a discrete
+  sampler class alongside `hmc()`/`adaptive_hmc()`; implement a Gibbs
+  driver composing the two; validate against known discrete-latent
+  posteriors with the Geweke harness (milestone 4 aside).
+- priority: low-medium (2027; large internals change).
+
+
+## What this milestone unlocks in 2027
+
+- **Marginalisation and decentring** on the completed registry: the
+  graph-rewriting features
+  ([#344](https://github.com/greta-dev/greta/pull/344),
+  [#157](https://github.com/greta-dev/greta/issues/157),
+  [#47](https://github.com/greta-dev/greta/issues/47)).
+- **The second backend**: a JAX substrate behind the op dictionary, or
+  whichever endgame the fork resolves to.
+- **Speed releases**: many chains by default
+  ([#294](https://github.com/greta-dev/greta/issues/294)),
+  tuning-in-backend
+  ([#547](https://github.com/greta-dev/greta/issues/547)), and the
+  representations fast path restored (the 250x on big matrices,
+  @sec-cholesky).
+
+
+### [Issue #42](https://github.com/greta-dev/greta/issues/42)
+
+- 2017-04-30
+- help wanted, module
+- A survival analysis module.
+- finding: a distributions/module effort; a natural greta extension package.
+- fix: build survival distributions/likelihoods once the distribution-authoring helpers ([#369](https://github.com/greta-dev/greta/issues/369)) exist.
+- priority: low (2027).
+
+### [Issue #47](https://github.com/greta-dev/greta/issues/47)
+
+- 2017-05-01
+- enhancement
+- Automatically decentre symmetric distributions.
+- problem: centred hierarchical parameterisations sample poorly.
+- finding: decentring is a *subgraph reparameterisation* - a graph rewrite that the flat registry makes tractable.
+- fix: detect centred structures; rewrite to non-centred; verify sampling.
+- priority: medium (2027 headline).
+
+### [Issue #157](https://github.com/greta-dev/greta/issues/157)
+
+- 2018-04-27
+- (none)
+- Helper functions for marginalising discrete random variables.
+- finding: the usage spec for the marginalisation feature; pairs with PR [#344](https://github.com/greta-dev/greta/issues/344)'s mechanism.
+- fix: implement `marginalise()` as a DAG rewrite (sum over support) on the registry.
+- priority: medium (2027 headline).
+
+### [Issue #191](https://github.com/greta-dev/greta/issues/191)
+
+- 2018-06-26
+- documentation
+- Sampling from discrete distributions and prior sensitivities.
+- finding: overlaps the marginalisation work (milestone 9) for discrete handling.
+- fix: an article; cross-link to [#157](https://github.com/greta-dev/greta/issues/157).
+- priority: low.
+### [Issue #272](https://github.com/greta-dev/greta/issues/272)
+
+- 2019-03-10
+- (none)
+- Use more TFP distributions.
+- finding: greta wraps a subset of TFP's distributions; the authoring helpers ([#369](https://github.com/greta-dev/greta/issues/369)) make adding more routine.
+- fix: wrap high-demand TFP distributions via [#369](https://github.com/greta-dev/greta/issues/369).
+- priority: low-medium.
+
+### [Issue #345](https://github.com/greta-dev/greta/issues/345)
+
+- 2020-02-26
+- enhancement
+- Bayesian R-squared for a greta model fit.
+- problem: there is no way to compute a Bayesian R-squared from a greta fit. The ingredients are available - the response vector, and posterior draws of the linear predictor from `calculate()` - but the user has to assemble them.
+- finding: the July 2026 pass recorded this as delivered by greta.checks, where `bayes_R2()` runs correctly against greta 0.6.0 (median 0.216, CI [0.146, 0.286]). That verdict was explicitly **contingent on the greta.checks adoption going ahead**, and it has not. The maintainer's ruling (August 2026) is that [#345](https://github.com/greta-dev/greta/issues/345) is not resolved, so it stays open here until the adoption question settles.
+- fix: no core greta code if greta.checks is adopted - `bayes_R2()` already exists there and reimplementing it in core greta would duplicate essentially the same formula. If the adoption does not go ahead, implement it against the posterior draws of the linear predictor. Either way the decision, not the code, is what blocks this.
+- priority: low, and gated on the greta.checks decision rather than on any work in this milestone.
+- defect in the proposed fix: the acceptance test in `fixes/issue-345.md` does not run. It builds on `distribution(as_data(rnorm(10))) <- normal(mu, 1)`, which parses but fails at runtime with *"target of assignment expands to non-language object"* - a replacement function needs an assignable name on the left, so the test fails at model definition, before reaching the behaviour under test. Assign first: `y <- as_data(rnorm(10))`, then `distribution(y) <- normal(mu, 1)`.
+
+### [Issue #369](https://github.com/greta-dev/greta/issues/369)
+
+- 2021-04-12
+- (none)
+- Helpers to establish new TFP/greta distributions.
+- finding: the infrastructure that makes [#42](https://github.com/greta-dev/greta/issues/42)/#67/#264/#272 cheap; also where the compose-vs-delegate endgame choice bites.
+- fix: a documented "add a distribution" toolkit.
+- priority: medium (enabler).
+
+
+### [Issue #519](https://github.com/greta-dev/greta/issues/519)
+
+- 2022-05-04
+- (none)
+- Implement DIC and other model-evaluation metrics.
+- problem: greta ships no information criteria.
+- finding: post-processing over log-likelihood draws; needs a pointwise log-lik hook (cf. [#739](https://github.com/greta-dev/greta/issues/739)).
+- fix: `dic()`/`waic()`/`loo()` helpers (new `R/model_criteria.R`, `loo` in `Suggests`) built on a `log_likelihood(draws)` pointwise accessor - which needs the [#739](https://github.com/greta-dev/greta/issues/739) data/log-lik hook, itself blocked by the milestone-6 sampler-interface closure. Dependency inversion: this issue is blocked by milestone 6 via [#739](https://github.com/greta-dev/greta/issues/739) - schedule after M6, or pull the [#739](https://github.com/greta-dev/greta/issues/739) data hook forward if wanted sooner.
+- proposed fix: see [fixes/issue-519.md](fixes/issue-519.md).
+- priority: low-medium.
+- defect in the proposed fix: the acceptance test in `fixes/issue-519.md` does not run. It builds on `distribution(as_data(rnorm(10))) <- normal(mu, 1)`, which parses but fails at runtime with *"target of assignment expands to non-language object"* - a replacement function needs an assignable name on the left, so the test fails at model definition, before reaching the behaviour under test. Assign first: `y <- as_data(rnorm(10))`, then `distribution(y) <- normal(mu, 1)`.
+

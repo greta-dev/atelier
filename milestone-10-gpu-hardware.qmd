@@ -1,0 +1,55 @@
+# GPU and hardware support {#sec-gpu}
+
+- Let users control which hardware greta runs on. Grouping label: the
+  `hardware` cluster. Small and self-contained - the theme that remains
+  once the installation and unpin work moved into milestone 1.
+- Nothing here blocks anything else, and nothing else blocks it. The
+  milestone can move in the schedule freely, which is why it is the
+  natural candidate to trade against adaptive sampling.
+
+**The shape of the work.** greta currently gives the user no say in
+device placement: TensorFlow picks, and greta neither reports nor
+overrides the choice. The three issues below are one feature ([#545](https://github.com/greta-dev/greta/issues/545))
+plus two long-standing reports that the feature would let a user
+diagnose for themselves.
+
+
+### [Issue #246](https://github.com/greta-dev/greta/issues/246)
+
+- 2018-11-03
+- installation
+- tensorflow-cuda does not work with greta.
+- problem: a CUDA-enabled TensorFlow build does not give greta GPU execution.
+- finding: an eight-year-old report against TF1 and a conda install path. It cannot be judged until the unpin (milestone 1) settles which TF versions greta supports, and it cannot be *diagnosed* by a user until [#545](https://github.com/greta-dev/greta/issues/545) gives them a way to see and set the device.
+- fix: re-verify against a post-unpin TF build with a CUDA device present; if it still fails, the report becomes actionable for the first time because [#545](https://github.com/greta-dev/greta/issues/545)'s sitrep output will say which device was selected.
+- priority: low (gated on milestone 1 and [#545](https://github.com/greta-dev/greta/issues/545)).
+
+### [Issue #472](https://github.com/greta-dev/greta/issues/472)
+
+- 2021-12-14
+- installation
+- TF installs are compiled for AVX/AVX2.
+- problem: the "your CPU supports instructions this TensorFlow binary was not compiled to use" warning.
+- finding: still-reproducible *upstream* behaviour - it is TensorFlow's own message about its own prebuilt wheels, not something greta emits or can suppress meaningfully. The July 2026 verification pass recorded this: "won't-fix" is a legitimate verdict here, but it is the maintainer's decision to make, not a default closure.
+- fix: either suppress/contextualise the warning in greta's startup path with a pointer to what it does and does not mean for performance, or close as a deliberate won't-do. Needs a maintainer ruling, not investigation.
+- priority: low (needs a decision, not code).
+
+### [Issue #545](https://github.com/greta-dev/greta/issues/545)
+
+- 2022-08-09
+- (none)
+- An interface to control CPU and GPU setup.
+- problem: no user-facing control over, or visibility of, device placement.
+- finding: this is the one real feature in the milestone, and it is what makes [#246](https://github.com/greta-dev/greta/issues/246) and [#704](https://github.com/greta-dev/greta/issues/704) tractable. It is also the reason for the minor version bump.
+- fix: a session-level device interface in the spirit of `future::plan()` - a `greta_device()`-style setter plus device reporting folded into `greta_sitrep()`, so a user can both see what greta chose and override it. Build it on `with(tf$device(...))` ([#704](https://github.com/greta-dev/greta/issues/704)) rather than on environment variables.
+- priority: medium (the milestone's headline).
+
+### [Issue #704](https://github.com/greta-dev/greta/issues/704)
+
+- 2024-08-16
+- (none)
+- Explore `with(tf$device())`.
+- problem: greta never scopes its op construction to a device.
+- finding: this is the *mechanism* for [#545](https://github.com/greta-dev/greta/issues/545), not an independent issue. TensorFlow's device scope is the standard way to pin graph construction to a device, and greta's op construction all funnels through the dag's `define_tf` walk, which gives one obvious place to wrap.
+- fix: prototype device scoping around the `define_tf` walk in `dag_class`, confirm the placement actually holds through `tf_function` tracing, then expose it as [#545](https://github.com/greta-dev/greta/issues/545)'s implementation. Note this is a TensorFlow-specific mechanism - under the backend abstraction (milestone 8) device selection becomes something the backend contract owns, so keep the user-facing interface backend-neutral even though the first implementation is not.
+- priority: medium (batches with [#545](https://github.com/greta-dev/greta/issues/545)).

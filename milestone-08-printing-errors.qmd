@@ -1,0 +1,232 @@
+# Printing, display, and friendly errors {#sec-printing}
+
+- The user-experience release: fix how greta arrays, models, and MCMC
+  results print, and make errors and checks helpful. Grouping labels:
+  the `printing` and `error-handling` clusters. Some of these are the
+  package's best contributor on-ramps.
+- Several depend on the same underlying decision: whether to base
+  greta's array/unknowns classes on `vctrs` ([#648](https://github.com/greta-dev/greta/issues/648)), which unlocks the
+  clean printing edge cases.
+
+**Both remaining breaking changes land here.** [#648](https://github.com/greta-dev/greta/issues/648) is one of them, and
+[#692](https://github.com/greta-dev/greta/issues/692) - which triangle
+greta's cholesky factor uses - is the other. [#692](https://github.com/greta-dev/greta/issues/692)'s *work* belongs with
+the distributions milestone (@sec-distributions) and its representation
+machinery; it is written up here because the plan batches the two
+breaking changes into one release, so that users migrate once rather
+than twice. That makes this the milestone with the largest migration
+burden in the plan, and the natural 1.0 candidate whenever greta
+decides to go there. It is not going there yet.
+
+### [Issue #144](https://github.com/greta-dev/greta/issues/144)
+
+- 2018-03-14
+- documentation
+- The documentation needs to be clearer overall.
+- finding: an umbrella; served by the docs lane's per-feature pieces.
+- fix: track against concrete doc PRs; close when the concrete items land.
+- priority: low.
+
+### [Issue #257](https://github.com/greta-dev/greta/issues/257)
+
+- 2018-11-21
+- documentation
+- Users want greta to play nicely with tidyverse/tidymodels idioms.
+- problem: no documented bridge between greta objects and tidy tooling.
+- finding: mostly a documentation + light-shim task; overlaps the docs lane.
+- **the central claim is verified, and the vignette is unblocked today.** `tidybayes::tidy_draws()`, `spread_draws()`, `gather_draws()` and `ggmcmc::ggs()` all work on greta draws with **zero greta changes**. The specific gap is real too: `as.data.frame(draws)`, `as_tibble(draws)` and `broom::tidy(draws)` all fail with "cannot coerce class `greta_mcmc_list`".
+- **the fix document omits `{posterior}`**, which already provides a complete tidy bridge — `posterior::as_draws_df()` works, and `summarise_draws()` returns mean/sd/q5/q95/**rhat**/**ess** in a tibble, i.e. much of what a "tidy summary" and [#439](https://github.com/greta-dev/greta/issues/439) would want. Add `posterior` to the Suggests list and cover it in the vignette as the modern standard.
+- also worth doing: greta arrays in tidyverse verbs **silently produce all-`NA`** rather than erroring (`as_tibble`, `as.data.frame`, `data.frame`, `tibble`, `mutate` — all "succeed"). A plausible-looking all-NA data frame with no warning is arguably worse than a failure. An `as.data.frame.greta_array` that errors with a pointer to `calculate()` would kill the trap.
+- fix: a "greta and the tidyverse" vignette (tidybayes/ggmcmc/posterior over the existing `coda::mcmc.list`) plus cheap `as.data.frame`/`as_tibble` methods for `greta_mcmc_list` (thin wrappers over `as.matrix()`, which works); keep the return type unchanged per maintainer guidance, don't add arguments to core functions.
+- proposed fix: see [fixes/issue-257.md](fixes/issue-257.md).
+- priority: medium.
+- defect in the proposed fix: the acceptance test in `fixes/issue-257.md` does not run. It builds on `distribution(as_data(rnorm(10))) <- normal(mu, 1)`, which parses but fails at runtime with *"target of assignment expands to non-language object"* - a replacement function needs an assignable name on the left, so the test fails at model definition, before reaching the behaviour under test. Assign first: `y <- as_data(rnorm(10))`, then `distribution(y) <- normal(mu, 1)`.
+
+### [Issue #375](https://github.com/greta-dev/greta/issues/375)
+
+- 2021-04-20
+- Up Next
+- Use classed errors (rlang `abort`/`warn`/`inform`).
+- finding: greta's errors are mostly bare `stop()`; classing enables testable conditions.
+- fix: migrate to classed conditions; pairs with the checking work.
+- priority: medium.
+
+### [Issue #376](https://github.com/greta-dev/greta/issues/376)
+
+- 2021-04-20
+- Up Next, low hanging fruit
+- Ensure functions use named arguments wherever possible.
+- finding: a mechanical, low-risk sweep across exported functions.
+- fix: name arguments in internal calls; guard with tests.
+- priority: low (good first issue).
+
+### [Issue #385](https://github.com/greta-dev/greta/issues/385)
+
+- 2021-04-22
+- Up Next
+- An AST/text-based print method for a greta model.
+- finding: overlaps [#610](https://github.com/greta-dev/greta/issues/610) (dag/compute plot options) - both are "show me the model".
+- fix: a text tree of the dag; complements the plot work.
+- priority: low-medium.
+
+### [Issue #481](https://github.com/greta-dev/greta/issues/481)
+
+- 2022-01-24
+- Up Next, low hanging fruit
+- `calculate()` should return a custom class.
+- finding: a class enables the better print/summary methods ([#650](https://github.com/greta-dev/greta/issues/650)).
+- fix: add a `greta_calculate` class with a print method.
+- priority: low.
+
+### [Issue #610](https://github.com/greta-dev/greta/issues/610)
+
+- 2024-02-08
+- (none)
+- Two plot options for greta models: compute method and dag.
+- finding: nothing currently captures dag-plot aesthetics; a new issue was filed for the aesthetics.
+- fix: `plot(model)` gains a compute-vs-dag view worth putting in a paper.
+- priority: medium.
+
+### [Issue #615](https://github.com/greta-dev/greta/issues/615)
+
+- 2024-02-12
+- Up Next, low hanging fruit
+- Misspelt argument names pass silently.
+- problem: no early check for unknown argument names.
+- finding: unknown named args (e.g. `nsims`) fall into `...` and are treated as targets, tripping `check_greta_arrays()` (`R/calculate.R:192`) with a misleading message. Fits the checking layer alongside [#784](https://github.com/greta-dev/greta/issues/784).
+- **the premise is stale: it does not pass silently, it errors.** `calculate(x, nsims = 5)` aborts, **names the offending argument**, and points at the right call frame (unlike [#784](https://github.com/greta-dev/greta/issues/784)). The residual gap is narrow — there is no "did you mean `nsim`?" suggestion, and the hint that is given ("Perhaps you forgot to explicitly name other arguments?") points the user in the *opposite* direction from the actual mistake. Retitle from "pass silently" to "no did-you-mean suggestion for near-miss argument names".
+- **the proposed `agrep(max.distance = 0.34)` is unsafe — verified.** `max.distance` is a *fraction of pattern length*, so short names match nearly everything: `sd`, `x` and `n` each match all six `calculate()` formals, `mu` matches three, and `beta` matches `trace_batch_size`. Those are exactly the names users give greta arrays, so `calculate(x, sd = 3)` would suggest "did you mean `trace_batch_size`?" — worse than the status quo. The `are_greta_array()` pre-filter contains the blast radius (these are already errors) but degrades the message.
+- fix: add a `check_dots_misspelled()` helper that matches non-greta-array `...` names against the real formals using a **bounded `utils::adist()`** — threshold <= 2, plus a guard requiring the candidate be within ~2 characters of the formal's length — and aborts with a "did you mean `nsim`?" hint; wire it into `calculate()`. Pin the false-positive cases above as tests. Confirmed formals: `values`, `nsim`, `seed`, `precision`, `trace_batch_size`, `compute_options`.
+- proposed fix: [fixes/issue-615.md](fixes/issue-615.md)
+- priority: medium (good contributor task).
+- defect in the proposed fix: `agrep(max.distance = 0.34)` is unsafe. `max.distance` is a *fraction of pattern length*, so short names match nearly every formal: `sd`, `x` and `n` each match all six of `calculate()`'s formals, and `beta` matches `trace_batch_size`. Those are precisely the names users give greta arrays, so `calculate(x, sd = 3)` would suggest "did you mean `trace_batch_size`?" - worse than the status quo. Use a bounded `utils::adist()` (threshold <= 2, plus a length guard), and pin those false positives as tests.
+
+### [Issue #622](https://github.com/greta-dev/greta/issues/622)
+
+- 2024-03-15
+- Up Next
+- Use `cli::test_that_cli()` for testing cli output.
+- finding: greta's cli output is largely untested; pairs with the cli print work.
+- fix: adopt `test_that_cli()` for installer/print output.
+- priority: low.
+
+### [Issue #625](https://github.com/greta-dev/greta/issues/625)
+
+- 2024-04-30
+- Up Next, low hanging fruit
+- Data-frame printing and overwriting methods for greta arrays.
+- finding: per the maintainer's own comment, this is actually a *complex* fix, not low-hanging - it wants the vctrs base ([#648](https://github.com/greta-dev/greta/issues/648)).
+- fix: land vctrs, then the print/overwrite methods.
+- priority: medium.
+
+### [Issue #648](https://github.com/greta-dev/greta/issues/648)
+
+- 2024-07-29
+- (none)
+- Consider vctrs for the greta array / unknowns classes.
+- finding: the enabling decision for [#625](https://github.com/greta-dev/greta/issues/625) and clean printing generally.
+- fix: prototype a vctrs-backed unknowns class; measure the blast radius.
+- priority: medium (enabler).
+
+### [Issue #650](https://github.com/greta-dev/greta/issues/650)
+
+- 2024-07-30
+- Up Next
+- A better print method for calculate results.
+- finding: needs the [#481](https://github.com/greta-dev/greta/issues/481) class first.
+- fix: print method on `greta_calculate`.
+- priority: low.
+
+### [Issue #653](https://github.com/greta-dev/greta/issues/653)
+
+- 2024-07-30
+- Up Next, low hanging fruit
+- A custom summary method for MCMC chains.
+- finding: greta leans on coda's summary; a greta-native summary reads better.
+- fix: `summary.greta_mcmc_list()`.
+- priority: low (good first issue).
+
+### [Issue #656](https://github.com/greta-dev/greta/issues/656)
+
+- 2024-07-30
+- Up Next, low hanging fruit
+- A print method for many-column greta arrays.
+- finding: wide arrays overflow the console.
+- fix: truncate/paginate columns in the print method.
+- priority: low.
+
+### [Issue #657](https://github.com/greta-dev/greta/issues/657)
+
+- 2024-07-30
+- Up Next
+- Max-width issues for MCMC output.
+- finding: overlaps [#656](https://github.com/greta-dev/greta/issues/656); a shared width-handling helper.
+- fix: respect `getOption("width")` in MCMC printing.
+- priority: low.
+
+### [Issue #690](https://github.com/greta-dev/greta/issues/690)
+
+- 2024-08-13
+- Up Next, printing
+- The wishart print method shows 0s.
+- finding: printing the upper/lower triangle of a symmetric factor.
+- fix: print the full symmetric matrix, not the raw factor.
+- priority: low.
+
+### [Issue #691](https://github.com/greta-dev/greta/issues/691)
+
+- 2024-08-13
+- Up Next, printing
+- Add dimension information to greta array print output.
+- finding: users can't see an array's shape at a glance.
+- fix: show dims in the print header.
+- priority: low (good first issue).
+
+### [Issue #692](https://github.com/greta-dev/greta/issues/692)
+
+- 2024-08-13
+- (none)
+- greta's cholesky factor should be upper triangular, as `base::chol()` returns.
+- problem: R's `chol()` returns an upper triangular factor. greta should match it, so that a factor obtained from a greta model can be used with `backsolve()`/`forwardsolve()` on the same assumptions as a factor from base R.
+- finding: **the July 2026 pass recorded this as fixed, and that verdict was wrong.** It tested `chol()` on a *data* greta array - `all.equal(calculate(chol(as_data(K)))[[1]], chol(K))` is `TRUE` - but the issue is about the *variable* path, which is the case its own reprex shows: `wishart(df = 4, Sigma = diag(3))`, where greta holds a cholesky factor internally as its representation of the variable. The data path was already correct and was never what the issue asked about. The maintainer's ruling (August 2026) is that [#692](https://github.com/greta-dev/greta/issues/692) is not resolved.
+- fix: establish which triangle the variable path returns for `wishart()`, `lkj_correlation()` and `cholesky_variable()`, and make it upper to match the data path and base R. Land a regression test pinning `chol()` against `base::chol()` at the same time - the risk runs in both directions, because greta.gp does `Lm <- t(chol(Kmm))` and then `forwardsolve(Lm, ...)`, which needs a lower factor and works only because the data path is upper. Flipping a convention without the test would make greta.gp **silently return wrong numbers**: measured at a maximum absolute difference of 0.2961 on a 4x4, with no error raised.
+- priority: high. This is one of the two known breaking changes left in the plan, and it is batched with [#648](https://github.com/greta-dev/greta/issues/648) so both land in one release.
+### [Issue #697](https://github.com/greta-dev/greta/issues/697)
+
+- 2024-08-16
+- (none)
+- Revisit the checking functions.
+- finding: the checkers have grown organically; a consolidation pass.
+- fix: audit and unify `check_*`; pairs with [#375](https://github.com/greta-dev/greta/issues/375) classed errors.
+- priority: medium.
+
+### [Issue #767](https://github.com/greta-dev/greta/issues/767)
+
+- 2025-02-13
+- help wanted
+- Use cli for nicer printing of sampler objects.
+- finding: sampler objects print plainly today.
+- fix: a cli-styled print method for samplers.
+- priority: low.
+
+### [Issue #784](https://github.com/greta-dev/greta/issues/784)
+
+- 2025-03-26
+- (none)
+- `calculate()` produces the wrong error message.
+- problem: `check_dependencies_satisfied()` (`R/checkers.R:699-780`) builds a good `final_msg` (which mentions `nsim`) but then `rlang::abort()`s with the worse `msg`, uses a broken pluralisation count (`length(names_text)` on a joined string), and defaults `call` to the `lapply` frame.
+- finding: a message-only fix, no behaviour change (confirmed by reading the discarded `final_msg`).
+- fix: abort with `final_msg`, count `length(unmet_names)`, and pass an explicit `call` from `calculate()` so the backtrace points at `calculate()` not `lapply`.
+- proposed fix: [fixes/issue-784.md](fixes/issue-784.md)
+- priority: medium (quick).
+
+### [Issue #785](https://github.com/greta-dev/greta/issues/785)
+
+- 2025-03-27
+- (none)
+- Update the `cli_process_*` functions.
+- finding: cli API modernisation; overlaps [#673](https://github.com/greta-dev/greta/issues/673).
+- fix: migrate to current cli progress helpers.
+- priority: low.
+
+

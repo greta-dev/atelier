@@ -1,0 +1,527 @@
+# The backend abstraction: op dictionary and node registry {#sec-backend}
+
+
+- The deepest internal work, deliberately last: replace stringly-typed
+  TF operations with a backend-neutral op dictionary, and replace the
+  doubly-linked R6 node objects with a flat registry of plain records.
+  Grouping labels: `op-dictionary`, `node-registry`, and the internals
+  half of `performance`.
+- These are the enabling foundations for a second backend and for the
+  2027 graph-rewriting features (milestone 12). They land last because
+  they want the conformance suite (milestone 7) as their test oracle.
+
+::: {.callout-warning}
+
+## The `.internals` desync: a systemic argument for this milestone
+
+Found independently in **two** extension packages, and the strongest
+practical case for a stable internal API.
+
+Extension packages reach into greta through `.internals$...`, and those
+symbols are captured at **install** time. A greta upgrade therefore
+silently desyncs every extension package until it is reinstalled -
+nothing errors at load, and nothing tells the user.
+
+The concrete instance: greta 0.6.0 renamed `tf_environment$batch_size`
+to `.batch_size`. That single rename **broke greta.distributions' test
+helpers**, and left **greta.dynamics' `batch_size` override silently
+dormant** (greta.dynamics issue [#41](https://github.com/greta-dev/greta/issues/41)). Note the perverse consequence
+there: fixing the *name* would **restore inert behaviour** - re-activate
+an override that has quietly been doing nothing. Whoever takes that
+issue must treat it as a behaviour change, not a typo fix.
+
+Neither failure is a bug in the extension package. Both follow from
+greta having no stable internal API - only `.internals`, a window onto
+whatever the current implementation happens to be called. **The op
+dictionary and node registry are what make a stable internal surface
+possible**: once ops are recorded by backend-neutral name and nodes are
+plain records, extension packages have a contract to depend on rather
+than a snapshot of internals. Until then, the mitigation is a cross-repo
+integration check that installs each extension package against greta's
+development head.
+
+(For a third instance of the same shape, see greta.checks: its
+`.internals` import turned out to be unused copy-paste, which is the
+only reason it survived 0.4.2 → 0.6.0 untouched.)
+:::
+
+**Why last, and why cheap now.** The classic reason to defer a core
+rewrite is that it eats months of scarce maintainer attention. But a
+mechanical, well-specified transformation guarded by a strong test
+oracle is precisely the work that AI assistance makes cheap: the
+maintainer cost becomes review hours, not writing hours. Nothing in
+this year's user-facing plan strictly *needs* either rewrite - the
+targets fix is targeted accessors, the unpin is install-layer, SNAPER
+is sampler-layer - so they are scheduled deliberately, not out of
+necessity.
+
+**The op dictionary.** greta already stores each operation as a string
+and resolves it late - `eval(parse(text = self$operation), envir =
+self$tf_function_env)` at `R/node_types.R:167-171`, with the name
+stored as a string at `R/node_types.R:120-122`. So greta is *already*
+a late-bound, name-based design. The only problem is that the names
+literally contain `tf$`, at ~96 call sites: `R/functions.R` (62),
+`R/operators.R` (18), `R/extract_replace_combine.R` (9),
+`R/transforms.R` (6), `R/chol2symm.R` (1). The move - the
+`array-redesign.R` sketch in this repo, adopted as policy - is to
+record ops by backend-neutral name and resolve them through a
+per-backend table. A pure-R miniature of the whole contract runs
+today:
+
+```{r}
+backend_r <- list(
+  # 1. the ops: backend-neutral names, one implementation per backend
+  ops = list(
+    add    = `+`,
+    matmul = `%*%`
+  ),
+  # 2. the backend owns compilation (a no-op for plain R;
+  #    tf_function for TF; jit for JAX)
+  compile = identity,
+  # 3. the backend owns random-number discipline
+  rng = list(
+    make_seed  = \(seed) as.integer(seed),
+    split_seed = \(seed) c(seed * 2L, seed * 2L + 1L)
+  ),
+  # 4. the backend owns dtype rules
+  dtype = list(default_float = "double")
+)
+
+# a tiny "model" built against the contract, compiled by the backend
+predict_fn <- backend_r$compile(
+  \(x, beta) backend_r$ops$matmul(x, beta)
+)
+
+predict_fn(diag(2), matrix(c(0.5, 2)))
+```
+
+The four clauses - ops, compile, rng, dtype - are the definition of "a
+greta backend"; the last three are what studying JAX taught us. The
+work is mechanical and file-by-file: change one call site from
+`op("add", ..., tf_operation = "tf$add")` to `op("add", ...,
+operation = "add")`, and turn the single `eval(parse())` at
+`R/node_types.R:167` into a table lookup. The 67 `tf_*()` shims in
+`R/tf_functions.R` become the *values* of the TF backend's table -
+they already are the per-backend implementations, just not yet indexed
+by neutral names.
+
+**The flat node registry.** Every greta array today is backed by an R6
+node whose parent/child links are stored on *both* ends and mutated
+together. This is the actual pair of methods - `add_parent()` appends to
+`self$parents` and, in the same call, reaches into the parent and
+appends `self` to *its* `children`:
+
+```{r}
+#| eval: false
+# R/node_class.R:60-64 and 96-99 (the real methods, verbatim)
+add_parent = function(node) {
+  self$parents <- c(self$parents, node)
+  node$add_child(self)
+},
+add_child = function(node) {
+  self$children <- c(self$children, node)
+},
+```
+
+The entries stored are the live R6 objects themselves, not ids, so after
+`x$add_parent(y)` the object in `y$children` *is* `x` in the pointer
+sense (`identical()` is true), and the whole connected component is
+reachable from any node in it. Two consequences fall straight out of
+this shape: node identity is the R6 environment address, which is why a
+random-hex `unique_name` has to be minted at construction
+(`create_unique_name()`, `R/node_class.R:262-264`; the collision hazard
+is [#366](https://github.com/greta-dev/greta/issues/366)); and the
+`children` list carries no information the parent lists don't - it is a
+pure redundancy kept only to make downward traversal a field read. That
+redundancy is exactly what Phase A below removes.
+
+The registry replaces all of this with one flat table of plain records
+referring to each other by id. Note the contrast with `add_parent()`:
+`add_node()` writes **one** record, because there is no second `children`
+field to keep in sync, and children are computed on demand instead:
+
+```{r}
+# a dag owns a single flat registry of nodes
+new_dag <- function() {
+  dag <- new.env()
+  dag$nodes <- list()
+  dag
+}
+
+new_node_id <- local({
+  counter <- 0
+  function() {
+    counter <<- counter + 1
+    sprintf("node_%03d", counter)
+  }
+})
+
+add_node <- function(dag, type, parents = character(), value = NULL) {
+  id <- new_node_id()
+  # a node is plain data: no methods, no back-references, no pointers
+  dag$nodes[[id]] <- list(
+    id      = id,
+    type    = type,
+    parents = parents,
+    value   = value
+  )
+  id
+}
+
+# children are derived from parents, not stored - contrast add_child()
+children_of <- function(dag, id) {
+  has_parent <- vapply(dag$nodes, \(node) id %in% node$parents, logical(1))
+  names(dag$nodes)[has_parent]
+}
+
+# x is a variable; y = x * 2 becomes three plain records
+dag <- new_dag()
+x <- add_node(dag, "variable")
+two <- add_node(dag, "data", value = 2)
+y <- add_node(dag, "operation", parents = c(x, two))
+
+children_of(dag, x)
+
+# serialisation is trivially safe: the graph is a list of lists
+identical(unserialize(serialize(dag$nodes, NULL)), dag$nodes)
+```
+
+| | R6 today | Flat registry |
+|---|---|---|
+| Edge storage | Doubly linked: `add_parent()` writes `self$parents` *and* the parent's `children` (`R/node_class.R:60-64`, `96-99`) | Single-ended: each record stores only `parents`; children derived (`children_of()`) |
+| Node identity | R6 environment address; random-hex `unique_name` to compensate (`R/node_class.R:262-264`) | The record's id - value-addressable |
+| Copying a model | Deep clone across the connected graph; currently errors ([#267](https://github.com/greta-dev/greta/issues/267)) - it recurses into the dag's `tf$Graph()` pointer (`R/dag_class.R:75`) *and* breaks shared-reference back-links | Plain list copy; no pointers on records, no shared identity to preserve |
+| Saving/loading | greta arrays serialise safely; models/samplers hold Python handles patched by milestone 9 | The graph is a list of lists, safe by construction |
+| Debugging | Stepping through `self$` chains in R6 environments | Plain `traceback()` through ordinary functions |
+| Traversal cost | Recursion through R6 method calls (`parent_names(recursive = TRUE)`, `R/node_class.R:124-148`) | `vapply()` scan of a column; no per-node dispatch |
+
+(The full code-grounded comparison, with every quote and `file:line`
+checked against the source, is in `evidence/node-registry-comparison.md`.)
+
+It is staged so it never blocks a release: (A) stop storing child
+links, compute them from parents on demand - behaviour-preserving; (B)
+parent references become ids resolved through the dag table - the
+"linear register" of
+[#247](https://github.com/greta-dev/greta/issues/247); (C) node
+internals become plain records, after which the object-system question
+(R6 vs S3 vs S7) shrinks to a small, local, reversible choice. (On S7:
+not fit for the mutable core today - even ggplot2 kept its mutable
+layer out of S7 - but fine for user-facing value classes later.)
+
+
+## The speed family (evidence for the performance cluster)
+
+- [#294](https://github.com/greta-dev/greta/issues/294) reports
+  "There is a huge efficiency gain to be had from setting the number
+  of chains to a large number in greta"; the benchmark: 4 chains →
+  185 effective samples/second; 1024 chains → 12,980.
+- [#547](https://github.com/greta-dev/greta/issues/547) - "during
+  warmup we step between R and TF every 4 iterations... in TF2, we
+  can avoid doing this on the R side and do it completely in TF."
+- [#358](https://github.com/greta-dev/greta/issues/358) - draws
+  serialisation "accounted for most of the pain" on big models.
+- [#210](https://github.com/greta-dev/greta/issues/210) - loops "very
+  slow to define and execute" (model-definition overhead; a
+  node-registry trigger).
+- [#309](https://github.com/greta-dev/greta/issues/309) - subsetting
+  shims "don't always use the most efficient operations".
+
+
+
+## Background reading for the backend decision
+
+These notes were written with the TensorFlow unpin, on the reasoning
+that the unpin was where the backend question would first bite. It
+shipped without needing them, so they sit here instead,
+with the milestone that actually has to answer the question.
+
+### JAX in one paragraph, for R developers
+
+JAX is "NumPy plus function transforms": write ordinary functions over
+arrays, then ask for transformed versions - `grad(f)` (the gradient
+function), `jit(f)` (compiled via XLA), `vmap(f)` (vectorised). No
+variables, no graph state, arrays immutable, randomness via explicit
+split keys. `jax.jit` and `tf.function` are close cousins (trace once,
+cache compiled), which is why greta's architecture translates: the dag
+trace is already effectively a pure `free_state → log_prob` function.
+R reaches JAX through reticulate only, and the precedent is proven -
+Posit's keras3 drives the JAX backend from R in production. The three
+R-bridge adaptations greta would need: pure-function discipline in the
+dag (mostly already true), a key-splitting step per sampler burst, and
+retrace-safe burst lengths (greta solved the same problem for TF).
+
+
+### What other PPLs teach
+
+- **Stan**: owns everything down to C++ autodiff - zero framework
+  risk, unsustainable maintenance for two people; *usable* via
+  BridgeStan (compiled model exposes `log_density_gradient()` to R).
+- **PyMC**: the only PPL to survive backend death, twice
+  (Theano → Aesara → PyTensor) - survived *because* it owned its graph
+  and its backend was forkable pure Python. The direct analogue of
+  greta's position.
+- **NumPyro**: all-in on JAX, thriving; hedge is a small portable
+  codebase.
+- **Edward**: coupled to TF1 internals; did not survive the TF2
+  transition.
+
+The survivor pattern: own the model representation; ask the backend
+only for tensors and gradients through a thin, enumerable boundary.
+greta already has this shape.
+
+
+### Modern R concurrency: mirai and mori
+
+**mirai** (r-lib, v2.7.x) is the async engine under targets' crew,
+purrr's parallel map, and Shiny. For greta: `future.mirai` may work
+with greta's chains unchanged today (hypothesis to verify - an October
+task); **persistent daemons** would let Python/TF initialise once per
+worker and be reused across `mcmc()` calls - a substantial
+parallel-chains win; and its `serial_config()` refhooks are the right
+interception point if pointer-*recipes* ever need to cross processes
+(they complement, not replace, the session-portability workstream's
+self-healing design).
+**mori** (v0.2.x, same author) offers zero-copy shared memory for
+plain R data across local workers - nice-to-have for sharing large
+input data between chains, irrelevant to the Python-pointer problem,
+too young to plan around.
+
+
+### The mrc-ide stack: odin2, monty, dust2
+
+Imperial's infectious-disease group rebuilt their ODE/state-space
+stack: **odin2** (R-like DSL transpiling to C++), **dust2** (the C++
+engine, particle filters), **monty** (composable models + samplers in
+R). Verdict for greta: **complementary, not competitive** - they own
+sequential Monte Carlo over dynamical systems; greta owns general
+Bayesian graphical models with automatic gradients. Two lessons
+matter: monty's `monty_model(density, gradient)` interface is exactly
+the shape of greta's sampler-interface workstream (external
+validation, and a feasible interop experiment); and their gradient
+story - symbolic differentiation of a
+restricted DSL, or compiled C++ AD, never general R-level autodiff -
+shows what an R-native greta backend would honestly require: symbolic
+reverse-mode differentiation of greta's own DAG. That is the credible
+"greta without Python" route, and monty's differentiable DSL is its
+working small-scale precedent.
+
+
+### Object systems: the S7 verdict
+
+S7 (v0.2.x) is value-semantics by design; the OOP working group's own
+scoping excludes mutable objects; environment subclassing was removed
+pending redesign; and ggplot2's 4.0 migration - the flagship - kept
+its mutable ggproto layer *out* of S7. No large R6→S7 migration
+precedent exists. Conclusion: S7 is not a candidate for greta's node
+core today; it remains a reasonable future choice for user-facing
+value classes (the vctrs work at the edges). The genuine core contest
+is R6 (status quo) versus S3-over-the-registry, and the node-registry
+workstream makes that choice small, local, and reversible - which is
+why it need not be decided now.
+
+
+## Backend evidence: the empirical tests behind the unpin {#sec-evidence}
+
+This section records the empirical evidence for the unpin and the wider
+backend strategy: the two claims below were tested by actually running
+them (July 2026), and the unpin and every later backend claim rest on
+these results.
+
+::: {.callout-note}
+
+### The short version
+
+We tested the two most important backend claims by actually running
+them (July 2026): **latest TensorFlow works with greta's frozen
+probability library** (so the version pin can be lifted), and **the
+same probability library runs on JAX** (so greta has a credible second
+backend). This appendix records those tests, the health of each
+upstream project, and the contingency ladder if things get worse.
+:::
+
+
+### The empirical tests
+
+Both tests were run in fresh uv-provisioned Python 3.12 environments,
+exercising the *exact* surface greta uses - enumerated by grepping
+greta's `R/` directory: ~25 `tfp$distributions$*` classes, the
+bijectors (Chain, Exp, Shift, Reshape, Transpose,
+CholeskyOuterProduct, FillScaleTriL), `tfp$mcmc$` (HMC, RWM, Slice,
+`sample_chain`), `tfp$optimizer$` (BFGS, Nelder-Mead), and
+`tfp$math$value_and_gradient`. The one Keras surface greta does touch -
+its 8 legacy optimisers, `tf$keras$optimizers$legacy$*`
+(`R/optimisers.R:359-625`) - is *not* exercised by these tests, and is
+the one part of the unpin still to be checked under TF 2.21 + tf-keras
+(see the caveat on Test 1).
+
+**Test 1 - the unpin.** `tensorflow==2.21.0` +
+`tensorflow-probability==0.25.0` + `tf-keras==2.21.0` (numpy 2.5.1):
+distributions including WishartTriL, CholeskyLKJ,
+DirichletMultinomial; bijector chains; gradients; a 300-step HMC chain
+inside `tf.function`; `bfgs_minimize`. **All passed** - three TF minor
+versions past TFP 0.25's officially tested pairing. Caveat: this
+exercises the TFP surface and `bfgs_minimize`, but not greta's 8 legacy
+Keras optimisers (`tf$keras$optimizers$legacy$*`, `R/optimisers.R:359-625`);
+because the Keras 2/3 break is exactly what `tf-keras` exists to
+paper over, those optimisers should be run under this stack before the
+unpin ships.
+
+**Test 2 - the JAX substrate.** The same kernel surface through
+`tfp.substrates.jax`, at both ends: TFP 0.25 with JAX 0.4.35 (the
+frozen-but-coherent pairing) and tfp-nightly with JAX 0.10.2 (the
+living pairing). **Both passed**, including HMC under `jax.jit`. One
+config note: greta's float64 default needs `jax_enable_x64`.
+
+Key mechanics behind Test 1: TF 2.16 made Keras 3 the default and
+broke TFP at import time
+([tensorflow/probability#1774](https://github.com/tensorflow/probability/issues/1774)).
+The fix is the `tf-keras` package (Keras 2 repackaged), which is
+released in lockstep with every TF release - through 2.21.0 (March
+2026) - and `TF_USE_LEGACY_KERAS=1` set before Python initialises.
+TFP 0.25 declares no TF upper bound, so it resolves cleanly.
+
+
+### Upstream health, grounded in dates
+
+| Project | Status (July 2026) | Evidence |
+|---|---|---|
+| TFP | Frozen releases, live repo | Last release 0.25 (Nov 2024); ~weekly maintenance commits through July 2026, incl. JAX-team members; nightly's JAX substrate tracks latest JAX while released 0.25's does not |
+| TF | Slowing, years from dead | 2.21 (Mar 2026); cadence now ~2/year; TensorBoard dep dropped; Google migrating internal models TF→JAX with dedicated tooling |
+| tf-keras | Healthy escape hatch | Lockstep release with every TF version since Mar 2024 |
+| JAX | Very much alive | Gemini/DeepMind existential dependency; quarterly-ish releases; small documented breaking changes per release |
+| torch (R) | Healthy, no Python | Posit/mlverse maintained, CRAN; ~8 distributions, no bijectors/kernels - the PPL layer would be greta's to write |
+
+The asymmetry that matters: **TFP is pure Python (~6.7 MB) - forkable
+by a two-person team. TF is C++ - not forkable.** greta's exposure is
+the TFP contract, and it is short.
+
+
+### The contingency ladder
+
+| Rung | Scenario | Response | Effort |
+|---|---|---|---|
+| 0 | TFP stalled but working (today) | tf-keras unpin + `tf < 2.22` cap + CI canary | days - **doing now** |
+| 1 | TFP breaks on future TF/Python, no release comes | Freeze a known-good uv lockfile; vendor/patch affected TFP modules (pure Python) | days-weeks |
+| 2 | TF terminal decline, TFP-at-HEAD stays JAX-alive | JAX substrate backend via the op dictionary | months (2-4) |
+| 3 | Google archives TFP entirely | Micro-fork the ~30 TFP files greta touches, and/or move to Distrax + BlackJAX | months |
+| 4 | Python exit demanded | Stan transpile via BridgeStan (months) / torch-R port (6-12 mo) / own densities + pluggable AD (year+) | see left |
+
+Preparation that cheapens every rung (all in the 2026 plan): the
+conformance suite, stateless seeds, op de-stringing, and composing new
+distributions from greta ops where cheap.
+
+
+
+## Supporting multiple backends in greta?
+
+This is the one strategic question deliberately left open, and outside
+input would be especially valuable here.
+
+**The situation.** TFP, greta's probability library, is in maintenance
+mode. History gives a clear steer: modelling languages coupled tightly
+to their computational engine tend not to survive that engine's death
+- Edward, built on TF1 internals, did not survive the TF2 transition.
+Languages that own their model representation and treat the engine as
+swappable tend to survive - PyMC has outlived two engine deaths
+(Theano, then Aesara). greta already has the survivable shape: its
+real dependency is not "TensorFlow" but a short, enumerable list of
+TFP functions - roughly 25 log-densities, 8 bijectors, 3 MCMC kernels,
+2 optimisers - and that list is what any endgame needs to replace or
+keep working. The full analysis is in @sec-evidence.
+
+**The candidate endgames:**
+
+| | Endgame | What it means | Effort | Python? |
+|---|---|---|---|---|
+| (a) | Stay in TFP-world | Unpin now; JAX substrate as second backend | days now, months later | yes |
+| (b) | torch-R flagship | Write ~25 log-densities, bijectors, kernels against torch's R-native autodiff | 6-12 months | **no** |
+| (c) | Own the densities | Distributions become compositions of greta ops; backends are interchangeable gradient providers | year+ | optional |
+| (d) | Stan transpile | Generate Stan code from the dag; gradients via BridgeStan | months | no (C++ toolchain) |
+
+```{r}
+#| eval: false
+# what a user might eventually see, whichever way this goes:
+# a session-level backend choice, in the spirit of future::plan()
+# and keras3::use_backend()
+greta_backend(backend = "jax")
+m <- model(y)
+draws <- mcmc(m, n_samples = 1000)
+```
+
+**Why it can stay open cheaply.** The endgame-neutral preparation -
+the conformance suite (milestone 7), stateless seeds (milestone 4),
+op de-stringing (milestone 11) - is identical under all four endgames.
+The one day-to-day choice it *does* affect: when adding a new
+distribution ([#369](https://github.com/greta-dev/greta/issues/369)), delegate to `tfp$distributions$X`, or compose it
+from greta ops (portable to every future backend for free)? Default
+until decided: compose where cheap, delegate where not. Issue
+[#586](https://github.com/greta-dev/greta/issues/586) is the tracking
+home for whichever way this resolves.
+
+
+
+### [Issue #155](https://github.com/greta-dev/greta/issues/155)
+
+- 2018-04-26
+- (none)
+- Cache the results of operations on data greta arrays.
+- problem: constant sub-expressions recompute each call.
+- finding: constant-folding is natural once ops are addressable by name in the op table.
+- fix: cache constant op results at define time.
+- priority: low-medium.
+
+### [Issue #156](https://github.com/greta-dev/greta/issues/156)
+
+- 2018-04-27
+- (none)
+- Add types to greta arrays.
+- finding: types (continuous/discrete, shape, dtype) become a field on the plain node record.
+- fix: carry a type field in the registry; use it for validation and the dtype clause.
+- priority: medium (enabler for milestone 9 and better errors).
+
+### [Issue #247](https://github.com/greta-dev/greta/issues/247)
+
+- 2018-11-08
+- (none)
+- Generalise greta's DAG construction - the "linear register of already-defined nodes".
+- finding: this is the design the flat registry implements; it also settles greta keeping its own shape semantics at op-recording time (avoiding the broadcasting ambiguity raised on the thread).
+- fix: land Phases A-C of the registry.
+- priority: medium (the design spine of this milestone).
+
+### [Issue #309](https://github.com/greta-dev/greta/issues/309)
+
+- 2019-08-17
+- (none)
+- Speed up `tf_extract()`/`tf_replace()`.
+- finding: the subsetting shims "don't always use the most efficient operations" (performance family).
+- fix: rewrite the extract/replace ops against the op table with efficient primitives.
+- priority: low-medium.
+
+### [Issue #581](https://github.com/greta-dev/greta/issues/581)
+
+- 2022-12-20
+- Up Next
+- Implement `outer()` in greta.
+- finding: a new op best added once the op dictionary is the place new ops go.
+- fix: add `outer` as a neutral-named op with a TF implementation.
+- priority: low.
+
+### [Issue #586](https://github.com/greta-dev/greta/issues/586)
+
+- 2023-04-20
+- (none)
+- Alternative backends (torch, xtensor).
+- finding: this is what the op dictionary exists to enable; it also connects to the backend-endgame fork below.
+- fix: once the op table lands, a second backend is a new table of implementations.
+- priority: medium (2027; strategy-dependent).
+
+### [Issue #705](https://github.com/greta-dev/greta/issues/705)
+
+- 2024-08-16
+- (none)
+- Method dispatch to avoid `if (class(thing)) ... else ...`.
+- finding: the manual class-branching is exactly what plain records + proper dispatch remove.
+- fix: replace class-branches with S3/S7 dispatch as the registry lands.
+- priority: low-medium.
+
+

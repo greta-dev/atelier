@@ -1,0 +1,320 @@
+# Faster and adaptive sampling {#sec-adaptive-sampling}
+
+- The sampling *capability* release: land the adaptive HMC sampler,
+  give the log-prob function a data interface, and name the
+  `(log_prob, gradient)` boundary that samplers actually depend on.
+  Grouping labels: the `mcmc` cluster, `sampler-interface`, and the
+  sampling half of `performance`.
+- These issues cohere around one object - the sampler - and its
+  contract with the model. The sampling *bugs* are not here: they ship
+  earlier and separately, in milestone 2.
+
+**The sampler interface.** A sampler needs exactly two things from a
+model: the log-probability of a parameter vector, and its gradient.
+greta's dag *already computes the value* at
+`R/dag_class.R:61-66` (`tf_log_prob_function_adjusted/_unadjusted`), and
+the sampler's gradient is autodiffed by the TFP kernel directly from
+that log-prob function (greta already does tape-based autodiff for the
+optimiser's Hessian - `tf$GradientTape` in `calculate_one_hessian` at
+`R/dag_class.R:497-519`). Naming
+this pair the official boundary means samplers stop caring what
+computed them. The demonstration below is a complete HMC sampler
+written against nothing but that closure, with no reference to
+TensorFlow:
+
+```{r}
+# a model, from the sampler's point of view: value and gradient only
+# (standard bivariate normal, standing in for greta's dag machinery)
+lp <- list(
+  value    = \(theta) -0.5 * sum(theta^2),
+  gradient = \(theta) -theta
+)
+
+# a complete HMC sampler against the closure interface
+sample_hmc <- function(lp, n_samples, theta, eps = 0.1, steps = 10) {
+  draws <- matrix(NA_real_, n_samples, length(theta))
+  for (i in seq_len(n_samples)) {
+    p0 <- rnorm(length(theta))
+    p <- p0
+    q <- theta
+    # leapfrog integration, using only lp$gradient()
+    p <- p + eps / 2 * lp$gradient(q)
+    for (s in seq_len(steps)) {
+      q <- q + eps * p
+      last_step <- s == steps
+      p <- p + (if (last_step) eps / 2 else eps) * lp$gradient(q)
+    }
+    # accept/reject, using only lp$value()
+    log_accept <-
+      lp$value(q) - lp$value(theta) - 0.5 * sum(p^2) + 0.5 * sum(p0^2)
+    if (log(runif(1)) < log_accept) {
+      theta <- q
+    }
+    draws[i, ] <- theta
+  }
+  draws
+}
+
+set.seed(2026)
+draws <- sample_hmc(lp, n_samples = 2000, theta = c(0, 0))
+
+# recovers the standard normal
+round(colMeans(draws), 2)
+round(apply(draws, 2, sd), 2)
+```
+
+There is external validation: monty - the sampler layer from
+Imperial's mrc-ide group - uses *exactly* this `(density, gradient)`
+interface, so a greta model could be wrapped as a `monty_model` as a
+cheap interop experiment.
+
+**The tension, resolved by layering.**
+[#547](https://github.com/greta-dev/greta/issues/547) pulls the other
+way: for speed, push the whole chain - warmup tuning included - into
+the backend. Both halves already exist. The fused path is the status
+quo: greta already runs `tfp$mcmc$sample_chain()`
+(`R/sampler_class.R:508`) inside a compiled `tf_function`
+(`define_tf_evaluate_sample_batch()`, `R/sampler_class.R:74`). The
+closure is the portability contract; backends may *additionally* offer
+a fused fast-path. SNAPER lands against the fused path first (it is TFP
+code today); [#547](https://github.com/greta-dev/greta/issues/547) later is a change *within* that path (construct
+TFP's self-adapting kernel instead of stepping adaptation from R every
+few iterations), not a rearchitecture.
+
+
+## Sprint item: TFP sampler adaptation with progress-bar updating
+
+- not a GitHub issue, and **deliberately not filed as one**: it is
+  implementation detail for [#547](https://github.com/greta-dev/greta/issues/547)
+  and [#765](https://github.com/greta-dev/greta/issues/765) rather than
+  standalone work, so it is left until this milestone is actually picked up.
+  From the [#322](https://github.com/greta-dev/greta/issues/322) sprint plan
+  (§2.3, "Use TFP sampler adaptation (with progress bar updating)").
+- Let TensorFlow Probability adapt the sampler's step size (and mass
+  matrix) inside the compiled chain, instead of stepping adaptation
+  from R between short bursts, and drive the progress bar from the
+  chain's traced diagnostics.
+- problem: greta adapts in R. `tune_epsilon()`
+  (`R/sampler_class.R:411-449`) is a hand-coded dual-averaging update
+  and `tune_diag_sd()` (`R/sampler_class.R:450-473`) shrinks the mass
+  matrix, both invoked by `tune()` (`R/sampler_class.R:407-409`)
+  between short `run_burst()` calls (`R/sampler_class.R:207-217`).
+  Every burst hands control back to R - exactly the R<->TF
+  round-tripping that [#547](https://github.com/greta-dev/greta/issues/547)
+  wants to remove.
+- finding: TFP already provides this. Build the leapfrog/HMC kernel
+  with `store_parameters_in_results = TRUE` (so a wrapper may rewrite
+  `step_size` on the fly), then wrap it in
+  `tfp$mcmc$DualAveragingStepSizeAdaptation` (it matches greta's
+  current dual-averaging scheme; `SimpleStepSizeAdaptation` is the
+  simpler alternative) with `num_adaptation_steps` set to the warmup
+  length. `sample_chain()` (`R/sampler_class.R:508`) then runs the
+  whole warmup-plus-sampling run inside the existing `tf_function`,
+  with TFP updating the step size internally each iteration.
+- progress bar: the bar hooks through `trace_fn`
+  (`R/sampler_class.R:512`), which today returns the entire
+  `kernel_results`. Narrow it to just what the bar needs - the
+  adapted step size (`new_step_size`) and
+  `inner_results.log_accept_ratio` (acceptance is
+  `exp(min(log_accept_ratio, 0))`) - and surface those per burst (or
+  via a `py_func` callback) so the bar reflects live acceptance and
+  step size. This also feeds
+  [#773](https://github.com/greta-dev/greta/issues/773) (abstract the
+  progress bars).
+- fix: construct the adapting wrapper in `define_tf_kernel()`; set
+  `store_parameters_in_results = TRUE`; replace the R-side
+  `tune()`/`tune_epsilon()`/`tune_diag_sd()` stepping with one
+  warmup-length `sample_chain()` under the wrapper; drive the progress
+  bar from a trimmed `trace_fn`. This is the same fused-path move
+  [#547](https://github.com/greta-dev/greta/issues/547) describes, and the mechanism the SNAPER work ([#765](https://github.com/greta-dev/greta/issues/765)/#779)
+  already relies on.
+- priority: medium (unlocks [#547](https://github.com/greta-dev/greta/issues/547); groundwork for the adaptive sampler).
+
+
+::: {.callout-note collapse="true"}
+## Aside: the Geweke check harness for SNAPER
+
+The in-progress Geweke testing code for `adaptive_hmc()` (from the
+local `inst/greta-geweke-ahmc.R` work accompanying
+[#779](https://github.com/greta-dev/greta/pull/779)):
+
+```{r}
+#| eval: false
+devtools::load_all(".")
+
+# parameters ----
+n <- 10
+mu1 <- 0
+sd1 <- 2
+sd2 <- 1
+
+# prior (n draws) ----
+p_theta <- function(n) {
+  rnorm(n, mu1, sd1)
+}
+
+# likelihood ----
+p_x_bar_theta <- function(theta) {
+  rnorm(n, theta, sd2)
+}
+
+# define the greta model ----
+x <- as_data(rep(0, n))
+greta_theta <- normal(mu1, sd1)
+distribution(x) <- normal(greta_theta, sd2)
+model <- model(greta_theta)
+
+# mcmc parameters ----
+n_iter <- 250
+n_warmup <- 10000
+n_chains <- 20
+n_thin <- 5
+geweke_sampler <- adaptive_hmc()
+
+#  checking ----
+time_taken <- system.time({
+  geweke_ahmc <- check_geweke(
+    sampler = geweke_sampler,
+    model = model,
+    data = x,
+    p_theta = p_theta,
+    p_x_bar_theta = p_x_bar_theta,
+    chains = n_chains,
+    niter = n_iter,
+    warmup = n_warmup,
+    thin = n_thin
+  )
+})
+
+# processing ----
+geweke_thin <- apply_thinning(geweke_ahmc, n_thin)
+
+geweke_stat <- geweke_ks(geweke_thin)
+
+geweke_stat
+
+the_time <- round(time_taken[3])
+
+cat("This took", the_time, "seconds")
+
+# ---- plotting ----
+plot_metadata <- build_plot_metadata(
+  sampler = geweke_sampler,
+  time = the_time,
+  n_warmup = n_warmup,
+  n_iter = n_iter,
+  n_chains = n_chains,
+  n_thin = n_thin,
+  ks_stat = geweke_stat
+)
+
+png(plot_metadata$qq_filename, width = 1200, height = 800, res = 150)
+
+geweke_qq(geweke_thin, title = plot_metadata$qq_title)
+dev.off()
+
+png(plot_metadata$coda_filename, width = 1200, height = 800, res = 150)
+plot(geweke_ahmc$draws)
+dev.off()
+
+bplot_dens <- bayesplot::mcmc_dens_chains(geweke_ahmc$draws)
+
+ggplot2::ggsave(
+  filename = plot_metadata$bayesplot_filename,
+  plot = bplot_dens,
+  width = 1200,
+  height = 800,
+  dpi = 150,
+  units = "px",
+  bg = "white"
+)
+
+```
+:::
+
+
+### [Issue #181](https://github.com/greta-dev/greta/issues/181)
+
+- 2018-06-01
+- documentation
+- Reusing one model across different datasets.
+- finding: the mechanism is the data interface ([#739](https://github.com/greta-dev/greta/issues/739)).
+- fix: document reuse once [#739](https://github.com/greta-dev/greta/issues/739) lands.
+- priority: low (follows [#739](https://github.com/greta-dev/greta/issues/739)).
+
+### [Issue #314](https://github.com/greta-dev/greta/issues/314)
+
+- 2019-08-20
+- (none)
+- "greta goes NUTS" - a NUTS sampler.
+- finding: the `nuts` branch is TF1-era; TFP provides NUTS today.
+- fix: expose TFP NUTS through the sampler interface; delete the old branch.
+- priority: medium.
+
+### [Issue #358](https://github.com/greta-dev/greta/issues/358)
+
+- 2020-12-15
+- (none)
+- Save draws to disk from TF directly rather than serialise into R.
+- finding: draws serialisation "accounted for most of the pain" on big models (performance family).
+- fix: stream draws to disk from the fused path.
+- priority: medium.
+
+### [Issue #547](https://github.com/greta-dev/greta/issues/547)
+
+- 2022-08-09
+- TF2, impact-1
+- Do more in TensorFlow instead of stepping back to R each burst.
+- finding, code-verified: greta steps R↔TF every few warmup iterations; the fused path already exists (`R/sampler_class.R:74,508`).
+- fix: build TFP's self-adapting kernel; run longer bursts - a swap inside the fused function.
+- priority: medium (speed; 2027).
+
+### [Issue #568](https://github.com/greta-dev/greta/issues/568)
+
+- 2022-11-04
+- TF2, impact-1
+- Implement new TFP optimisers.
+- finding: greta's optimiser list predates current TFP; overlaps [#244](https://github.com/greta-dev/greta/issues/244)/#569.
+- fix: wrap the current TFP optimisers; refresh `R/optimisers.R`.
+- priority: medium.
+
+### [Issue #569](https://github.com/greta-dev/greta/issues/569)
+
+- 2022-11-04
+- Up Next, TF2
+- Extract convergence and iteration info from TF2 optimisers.
+- finding: TFP optimisers expose convergence state greta discards.
+- fix: surface convergence/iterations on the optimiser result.
+- priority: medium.
+
+### [Issue #739](https://github.com/greta-dev/greta/issues/739)
+
+- 2024-11-01
+- (none)
+- Add a data interface into the log-prob function.
+- problem: no clean way to swap data without rebuilding the model - the enabling hook for reuse ([#181](https://github.com/greta-dev/greta/issues/181)) and info criteria ([#519](https://github.com/greta-dev/greta/issues/519)).
+- finding: the sampler-interface closure (milestone 6) is the natural place to parameterise by data.
+- fix: parameterise the compiled log-prob closure by its (non-constant) data nodes so data can be swapped without a rebuild - turn swappable data into arguments of the traced function in `define_tf_log_prob_function()`/`generate_log_prob_function()` (`R/dag_class.R:50-56`), driven by the data-node "using constants" flag (`R/node_types.R`). Dependency inversion: this milestone-3 issue is naturally built on the milestone-6 sampler-interface closure - schedule after M6, or pull just the data hook forward if [#519](https://github.com/greta-dev/greta/issues/519) is wanted sooner.
+- **warning for whoever picks this up:** `dag_class` exposes `get_tf_data_list()`/`set_tf_data_list()` (`R/dag_class.R:599-606`), which look like an existing data-swap seam. **They are not.** Tested directly: the data list is empty and swapping through it does not move the log prob (`-13.97077` before and after). Data is baked in at trace time either way - as `tf$constant` under the constants branch, as an eager `as_tensor` otherwise (`R/node_types.R:42-68`). The source comment concedes it: *"we might not need this anymore as it was to do with stashing things for use in the feed_dict later"*. It is **vestigial TF1 feed_dict plumbing** to be removed or repurposed, not built on. It in turn blocks [#519](https://github.com/greta-dev/greta/issues/519) and enables [#181](https://github.com/greta-dev/greta/issues/181).
+- proposed fix: see [fixes/issue-739.md](fixes/issue-739.md).
+- priority: medium (enabler).
+
+### [Issue #765](https://github.com/greta-dev/greta/issues/765)
+
+- 2025-02-12
+- (none)
+- Add the SNAPER HMC sampler.
+- finding: PR [#779](https://github.com/greta-dev/greta/pull/779) implements `adaptive_hmc()`; the blocker is *accuracy, not code* - it must pass the Geweke check (harness in the aside below).
+- fix: rebase [#779](https://github.com/greta-dev/greta/issues/779), make Geweke pass, land against the fused path.
+- priority: high (headline).
+
+### [Issue #790](https://github.com/greta-dev/greta/issues/790)
+
+- 2025-05-13
+- (none)
+- Code comparing HMC to adaptive HMC.
+- finding: the efficiency case - `adaptive_hmc()` far outperforms `hmc()` on effective sample size.
+- fix: fold the comparison into the sampler docs and the acceptance evidence.
+- priority: medium (evidence for [#765](https://github.com/greta-dev/greta/issues/765)).
+
+

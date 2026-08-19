@@ -1,0 +1,199 @@
+# Developer tooling and repo housekeeping {#sec-housekeeping}
+
+- The work that keeps the repository, the website and the developer
+  experience in order. Grouping labels: `documentation`, `refactor`.
+- Like the test suite (@sec-test-suite), this is ongoing work that
+  earns a milestone now that milestones no longer imply a version. It
+  is the natural filler for a patch release.
+
+**What is in here.** Four strands, none of which blocks any other.
+
+*Repository and tooling*:
+[#716](https://github.com/greta-dev/greta/issues/716) (get the linter
+working again), [#368](https://github.com/greta-dev/greta/issues/368)
+(use `lifecycle` for deprecation, which the plan will need as soon as
+the two breaking changes in milestone 8 land),
+[#721](https://github.com/greta-dev/greta/issues/721) (tell GitHub this
+is an R repository, not C++), and
+[#803](https://github.com/greta-dev/greta/issues/803) (documenting the
+internal R6 classes).
+
+*Documentation mechanics*:
+[#442](https://github.com/greta-dev/greta/issues/442) (`@examplesIf`),
+[#724](https://github.com/greta-dev/greta/issues/724) (roxygen `family`
+tags), [#768](https://github.com/greta-dev/greta/issues/768) (use the
+penguins data in examples), plus two content items -
+[#505](https://github.com/greta-dev/greta/issues/505) (more prediction
+examples) and [#571](https://github.com/greta-dev/greta/issues/571)
+(non-independent sampling with `greta_array()`).
+
+*The website and blog*:
+[#435](https://github.com/greta-dev/greta/issues/435) and
+[#822](https://github.com/greta-dev/greta/issues/822) (the blog, now
+built and awaiting the 0.6.0 post being proofed and un-drafted),
+[#623](https://github.com/greta-dev/greta/issues/623) (a papers-using-greta
+page), and [#812](https://github.com/greta-dev/greta/issues/812) (the
+dead `greta-stats.org` apex domain). [#812](https://github.com/greta-dev/greta/issues/812) is the only item in this
+milestone that needs an account action rather than a commit, and it is
+not greta's account: the domain belongs to Nick Golding.
+
+*The umbrella trackers*:
+[#322](https://github.com/greta-dev/greta/issues/322) (the 2020 coding
+sprint plan) and [#744](https://github.com/greta-dev/greta/issues/744)
+(revisit the TODO list). Both are kept open by policy rather than
+because they describe work - [#322](https://github.com/greta-dev/greta/issues/322)'s sub-items have all been rehomed
+into the milestones, and [#744](https://github.com/greta-dev/greta/issues/744) is circular by construction. They are
+here so that the tracker has somewhere honest to put them.
+
+### [Issue #322](https://github.com/greta-dev/greta/issues/322)
+
+- 2020-01-06
+- (none)
+- A 2020 coding sprint plan ("just here for me to keep track").
+- finding: a personal tracking issue, now superseded by this plan.
+- fix: close as superseded.
+- priority: low (close).
+
+### [Issue #368](https://github.com/greta-dev/greta/issues/368)
+
+- 2021-04-12
+- (none)
+- Use the lifecycle package to manage deprecation/stability.
+- finding: greta lacks formal stability badges; useful as the API evolves through these milestones.
+- fix: adopt lifecycle; badge experimental/stable functions.
+- priority: low-medium.
+
+### [Issue #435](https://github.com/greta-dev/greta/issues/435)
+
+- 2021-07-08
+- documentation
+- Add a blog to the website.
+- finding: greta.blog is being revived (July 2026) as a modern Quarto site.
+- fix: no package code - link the revived greta.blog from the pkgdown `_pkgdown.yml` navbar and the README, seed it with one release/forum-derived post, then close in favour of it. Acceptance: the blog link resolves from the site nav and CI's URL check passes. Independent of everything; pairs with [#435](https://github.com/greta-dev/greta/issues/435)'s revival and [#812](https://github.com/greta-dev/greta/issues/812) (site must be reachable first).
+- priority: low (largely done).
+
+### [Issue #442](https://github.com/greta-dev/greta/issues/442)
+
+- 2021-09-30
+- (none)
+- Look into `@examplesIf` in roxygen.
+- finding: lets examples run only when TF is available - improves CRAN example handling.
+- fix: adopt `@examplesIf check_tf_version()` across examples.
+- priority: low-medium.
+
+### [Issue #505](https://github.com/greta-dev/greta/issues/505)
+
+- 2022-03-18
+- (none)
+- More examples for predicting to new data with complex structures.
+- finding: a documentation gap around `calculate()` for prediction.
+- fix: worked prediction examples for hierarchical models.
+- priority: low.
+
+### [Issue #571](https://github.com/greta-dev/greta/issues/571)
+
+- 2022-11-07
+- (none)
+- Document non-independent sampling using `greta_array()`.
+- finding: a common confusion about how arrays share variables.
+- fix: an article on shared/independent structure.
+- priority: low.
+
+### [Issue #623](https://github.com/greta-dev/greta/issues/623)
+
+Still open. A website/documentation task with no milestone. The obvious homes
+are milestone 1, which already absorbs the repo-wide documentation and tooling
+work, or the "immediate" group above, since it is not package code and cannot
+carry a version.
+
+- 2024-04-10
+- (none)
+- Collate literature that uses or cites greta.
+- finding: a documentation/community task for the website.
+- fix: no package code - add a "papers using greta" page to the pkgdown site (a curated bibliography, seeded from the greta citation and Google Scholar "cited by", maintained in `references.bib`); close when published. Acceptance: the page builds under `pkgdown::build_site()` and appears in the nav. Independent; docs-lane only.
+- priority: low.
+
+### [Issue #716](https://github.com/greta-dev/greta/issues/716)
+
+- 2024-08-21
+- (none)
+- Get the linter working again.
+- finding: lintr config has drifted; overlaps the air restyle ([#808](https://github.com/greta-dev/greta/issues/808)).
+- fix: restore lintr in CI.
+- priority: low.
+
+### [Issue #721](https://github.com/greta-dev/greta/issues/721)
+
+- 2024-08-27
+- (none)
+- Update the language file to indicate this is R, not C++.
+- finding: a GitHub-linguist/`.gitattributes` metadata fix.
+- fix: correct the language override.
+- priority: low (quick).
+
+### [Issue #724](https://github.com/greta-dev/greta/issues/724)
+
+- 2024-09-27
+- (none)
+- Use roxygen's `@family` tag to connect related functions.
+- finding: improves reference-manual navigation.
+- fix: add `@family` groupings across the reference.
+- priority: low.
+
+### [Issue #744](https://github.com/greta-dev/greta/issues/744)
+
+- 2024-11-07
+- (none)
+- Revisit the TODO list and turn items into issues.
+- finding: a self-referential triage chore (appendix close-candidate).
+- fix: sweep TODOs into issues; close.
+- priority: low (close).
+
+### [Issue #768](https://github.com/greta-dev/greta/issues/768)
+
+- 2025-02-25
+- (none)
+- Use the penguins data in greta examples.
+- finding: palmerpenguins is the modern teaching dataset.
+- fix: migrate examples from older datasets to penguins.
+- priority: low.
+
+### [Issue #803](https://github.com/greta-dev/greta/issues/803)
+
+- 2026-04-23
+- (none)
+- Revisit R6 documentation with roxygen.
+- finding: internal R6 classes are undocumented; relates to the registry rework (milestone 8).
+- fix: document the R6 classes (or their successors) with roxygen.
+- priority: low.
+
+### [Issue #812](https://github.com/greta-dev/greta/issues/812)
+
+- 2026-07-07
+- (none)
+- Resolve the greta-stats.org website/DNS issue.
+- **rescoped: this is a cross-repo URL sweep, not only a DNS task.** `greta-stats.org` is dead, not merely misconfigured — it fails with `SSL: no alternative certificate subject name matches`. `https://greta-dev.github.io/greta/` returns 200 and is the live site. The dead domain is still linked from **greta (7 files), greta.distributions (3), greta.dynamics (2), greta.gp (1)**, and `index.qmd` of this book (now fixed). Either restore the domain *or* sweep every reference to the GitHub Pages URL — the current state is both half-done. Add a URL check to CI so it cannot recur.
+- problem: needs direct action on Netlify/DNS access, plus edits in four repos.
+- finding: the one item requiring an account action as well as code.
+- fix: no package code - an infrastructure action for the domain owner (`@goldingn`): the stale A record points `greta-stats.org` at an old AWS Sydney IP so Netlify never provisioned a Let's Encrypt cert (hostname/TLS mismatch, HTTPS hard-fails). Verify the custom domain on the Netlify site and repoint DNS to Netlify's endpoint (or migrate DNS/hosting to GitHub Pages as done for njtierney.com). Acceptance: `https://greta-stats.org` serves a valid cert with no hostname mismatch. Blocks [#435](https://github.com/greta-dev/greta/issues/435) (blog link) and [#623](https://github.com/greta-dev/greta/issues/623) (papers page) being reachable; no code dependency.
+- priority: high (public-facing), small.
+
+::: {.callout-note}
+## Partly overtaken, July 2026
+
+Only the apex domain is dead. `https://forum.greta-stats.org` returns 200, so
+the forum links in greta's pkgdown navbar and in the blog footer are fine — the
+sweep is narrower than the block above implies. The blog itself
+([#435](https://github.com/greta-dev/greta/issues/435),
+[#822](https://github.com/greta-dev/greta/issues/822)) is now built and linked
+from the greta website, so it is no longer blocked on this.
+:::
+### [Issue #822](https://github.com/greta-dev/greta/issues/822)
+
+- 2026-07-21
+- low hanging fruit
+- Establish the greta blog.
+- problem: a checklist issue - stand up pkgdown on the blog, proofread the existing posts, proofread and publish the 0.6.0 release post, and share it.
+- finding: partly done. The blog is built and linked from the greta website, which also retires the old dependency on the dead `greta-stats.org` apex domain (see [#812](https://github.com/greta-dev/greta/issues/812)). What remains is editorial: the 0.6.0 announcement post is written but still carries `draft: true` and a TODO-verify marker on its contributor list.
+- fix: proofread the drafted 0.6.0 post, verify the contributor list against the actual release, drop `draft: true`, publish, and announce. Closes alongside [#435](https://github.com/greta-dev/greta/issues/435), which asked for the blog component in the first place.
+- priority: medium, and entirely editorial - no package code.

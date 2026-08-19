@@ -1,0 +1,15 @@
+_book/
+.quarto/
+.Rproj.user/
+.DS_Store
+**/*.quarto_ipynb
+
+# generated from milestone-assignments.qmd
+milestone-assignments.pdf
+
+/.quarto/
+.Rproj.user
+.Rhistory
+.RData
+.httr-oauth
+.quarto

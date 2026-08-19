@@ -1,0 +1,231 @@
+# Session portability, targets, and community {#sec-session-portability}
+
+
+- Make a greta model survive being saved and reloaded in a fresh R
+  session, unblocking [targets](https://books.ropensci.org/targets/)
+  pipelines - the single most-requested integration - and tidy up the
+  ecosystem and community items that ride alongside it. Grouping
+  labels: `targets-compat`, the `ecosystem` cluster, the `community`
+  cluster.
+- The core is one design (self-healing Python pointers) that also
+  dissolves the model-cloning bug and the reloaded-plot bug; the rest
+  are independent ecosystem conveniences.
+
+**The problem.** Saving a greta model and reloading it in a fresh R
+session breaks it, because the model holds pointers into a Python
+session that no longer exists.
+
+**The finding, code-verified.** Python handles do not live on greta
+arrays or nodes - nodes store operation strings and plain R lists
+(`R/node_types.R:120-122`, `R/node_class.R:6-7`); the Python session
+is built on the dag by `new_tf_environment()` (`R/dag_class.R:73`).
+And the dag *already contains the exact rebuild recipe*, today used
+only for parallel chains: `define_tf_trace_values_batch()`
+(`R/dag_class.R:44`) and `define_tf_log_prob_function()`
+(`R/dag_class.R:50`). Re-running that recipe on a deserialised model is
+expected to revive it - the same rebuild greta already performs on a
+parallel worker's fresh Python session - and the
+`saveRDS`->`callr`->rebuild round-trip below is the acceptance test
+that will confirm it end-to-end.
+
+**The fix** - the [#595](https://github.com/greta-dev/greta/issues/595)
+design: wrap every access to a Python handle in a check that silently
+rebuilds it if dead. This *replaces* the parallel-only special case at
+`R/sampler_class.R:122-127` with one code path for parallel, targets,
+and `saveRDS()`:
+
+```{r}
+#| eval: false
+# new, R/dag_class.R: is a Python handle dead?
+py_xptr_stale <- function(x) {
+  is.null(x) || reticulate::py_is_null_xptr(x)
+}
+
+# new, R/dag_class.R: self-healing accessor -- the only way the
+# log-prob function ever gets called
+evaluate_log_prob_function = function(free_state) {
+  if (py_xptr_stale(self$tf_log_prob_function)) {
+    self$new_tf_environment()
+    self$define_tf_log_prob_function()
+  }
+  self$tf_log_prob_function(free_state)
+}
+```
+
+The predicate is named `py_xptr_stale()`, not `tf_stale()`, on purpose:
+the question it asks - has this reticulate external pointer been
+invalidated by a restarted Python session? - is a Python concern, not a
+TensorFlow one, and is the identical check whichever backend (TF, JAX,
+torch) computed the handle. It is a thin wrapper over reticulate's own
+`py_is_null_xptr()`, so it borrows reticulate's `xptr` vocabulary and
+stays out of greta's ~70-strong `tf_*` family, which are all TensorFlow
+op wrappers rather than pointer predicates. Naming it this way keeps the
+one piece of new session-portability machinery backend-neutral, in line
+with the op-dictionary and backend-endgame work (milestone 11 and below).
+
+The same pattern covers the sampler's `tf_evaluate_sample_batch`
+(fixing sequential `extra_samples()` on reloaded draws) and the
+`plot()` path ([#601](https://github.com/greta-dev/greta/issues/601)).
+Acceptance test: round-trip a model and draws through `saveRDS()` into
+a fresh R process via `callr`, then `mcmc()`, `extra_samples()`,
+`calculate()`, and `plot()` all just work; plus a real
+`targets::tar_script()` pipeline test, shipped with a "greta and
+targets" vignette.
+
+
+**What moved.** [#611](https://github.com/greta-dev/greta/issues/611)
+(`greta_conflicts()`) and [#798](https://github.com/greta-dev/greta/issues/798)
+(`value()` over a list) were written up here but are not about session
+portability; both are now in milestone 3 with the rest of the greta
+array semantics. Coming the other way,
+[#701](https://github.com/greta-dev/greta/issues/701) - GitHub
+Discussions versus the Discourse forum - used to sit outside the
+milestone structure entirely, on the grounds that it is not package
+code and so could not carry a version. Milestones no longer imply
+versions, so it joins the community items it belongs with.
+
+### [Issue #509](https://github.com/greta-dev/greta/issues/509)
+
+- 2022-03-21
+- Up Next
+- MCMC crashes under `future::plan(cluster)` or `(multisession)`.
+- problem: the parallel worker can't rebuild the model - the same dead-pointer cause as [#595](https://github.com/greta-dev/greta/issues/595).
+- **does not reproduce — a candidate to close on the evidence below rather than to fix, and the framing must change.** Both `multisession` and `cluster` complete and return a valid 2-chain `greta_mcmc_list`. The reported `object 'tf' not found` is a 2022 report against TensorFlow 1.14 and greta's TF1 path. The parallel special case at `R/sampler_class.R:121-128` is precisely what makes it work today.
+- so **[#595](https://github.com/greta-dev/greta/issues/595) does not *fix* a live parallel crash** — it lets that special case be deleted in favour of one self-healing path. That is a refactor win, not a bug fix, and the issue should be re-labelled accordingly. Step 2 of the fix document (explicit worker-side Python init) is **not needed for correctness**; workers initialise fine. Defensible as hardening, but do not sell it as required.
+- **critical sequencing:** the fix document's step 3 deletes `R/sampler_class.R:122-127`. Doing that before [#595](https://github.com/greta-dev/greta/issues/595)'s step 4 covers `tf_evaluate_sample_batch` would **regress this issue from working to broken** — and since a dag-only rebuild demonstrably does not heal that handle, the risk is live, not theoretical. The acceptance test here is the right guard and must run in the same PR as the deletion.
+- performance finding worth carrying: **`cluster` is ~18x slower than `multisession`** for identical work (126.6 s vs 7.1 s). Both correct, so not a bug, but plausibly each `cluster` worker re-initialises Python/TF per chain. Worth re-timing after [#595](https://github.com/greta-dev/greta/issues/595) lands.
+- proposed fix: see [fixes/issue-509.md](fixes/issue-509.md).
+- priority: high (blocks parallel use).
+
+### [Issue #557](https://github.com/greta-dev/greta/issues/557)
+
+- 2022-10-03
+- (none)
+- Explore the {bundle} package for storing greta models.
+- problem: {bundle} is the ecosystem's standard for serialising fitted models.
+- **verdict: close as won't-fix, deferred until after [#595](https://github.com/greta-dev/greta/issues/595).** Tested against bundle 0.1.3 and greta 0.6.0 across two processes. `bundle()` on a greta model is a **silent no-op** today: no greta method exists, so `bundle.default` returns the object unchanged — same class, byte-identical serialised size (493332 both), and `unbundle()` returns something `identical()` to its input. The handle is still stale afterwards and `mcmc()` fails with the same dead-pointer error as plain `saveRDS`/`readRDS`. Users reaching for it get a false sense of safety.
+- the categorical argument: `{bundle}` exists for models whose R object *cannot* be serialised meaningfully — keras (HDF5 weights blob), xgboost (external Booster pointer), h2o (JVM-hosted model). greta is not one of those. **greta's model *is* the R-side node graph, which `saveRDS` already captures**; the Python side is a derived cache, not state. That is demonstrable today — `plot()` and `calculate()` work on a reloaded model with no rehydration at all.
+- after [#595](https://github.com/greta-dev/greta/issues/595), the method would wrap `identity()`: an S3 method, a `Suggests` dependency, conditional `.onLoad` registration and a test suite, all to add a second, competing answer to "how do I save a greta model?". The ecosystem argument is weak too — greta models are not `model_fit`/`workflow` objects and do not flow into vetiver pipelines.
+- action: leave open until [#595](https://github.com/greta-dev/greta/issues/595) lands, then close with a note pointing at the "greta and targets" vignette's `saveRDS` section. If a concrete vetiver-style workflow ever appears, it is a ~10-line adapter added then, against a real use case.
+- proposed fix: [fixes/issue-557.md](fixes/issue-557.md) is technically accurate if implemented; the recommendation is that it should not be.
+- priority: low (close, not build).
+- defect in the proposed fix: the acceptance test in `fixes/issue-557.md` does not run. It builds on `distribution(as_data(rnorm(10))) <- normal(mu, 1)`, which parses but fails at runtime with *"target of assignment expands to non-language object"* - a replacement function needs an assignable name on the left, so the test fails at model definition, before reaching the behaviour under test. Assign first: `y <- as_data(rnorm(10))`, then `distribution(y) <- normal(mu, 1)`.
+
+::: {.callout-important}
+#### [#557](https://github.com/greta-dev/greta/issues/557) ({bundle}): close as won't-fix
+
+This answers the question that sat unanswered here - *do we need
+{bundle} at all once [#595](https://github.com/greta-dev/greta/issues/595) is resolved?* **No.**
+
+Tested against bundle 0.1.3 and greta 0.6.0 across two processes:
+`bundle()` on a greta model today is a **silent no-op**. There is no
+greta method, so `bundle.default` returns the object unchanged - same
+class, byte-identical serialised size (493332 both), and `unbundle()`
+returns something `identical()` to its input. The handle is still stale
+afterwards and `mcmc()` fails with the same dead-pointer error as plain
+`saveRDS`/`readRDS`. Users reaching for `bundle` today get a false sense
+of safety, not a working model.
+
+The categorical argument is the decisive one. `{bundle}` exists for
+models whose R object *cannot* be serialised meaningfully - keras
+(weights in an HDF5 blob), xgboost (external Booster pointer), h2o
+(model on a JVM server). greta is not in that category: **greta's model
+*is* the R-side node graph, which `saveRDS` already captures**, and the
+Python side is a derived cache, not state. That is why `plot()` and
+`calculate()` already work on a reloaded model with no rehydration at
+all. After [#595](https://github.com/greta-dev/greta/issues/595) lands, the `bundle` method would wrap `identity()` -
+an S3 method, a `Suggests` dependency, conditional registration and a
+test suite, all to add a second, competing answer to "how do I save a
+greta model?".
+
+**Action:** leave open until [#595](https://github.com/greta-dev/greta/issues/595) lands, then close with a note pointing
+at the "greta and targets" vignette's `saveRDS` section. If a concrete
+vetiver-style workflow ever appears, it is a ~10-line adapter that can
+be added then, against a real use case.
+:::
+
+### [Issue #595](https://github.com/greta-dev/greta/issues/595)
+
+- 2023-11-15
+- Up Next, impact-1
+- Detect and "awaken" dead Python pointers so greta works with targets.
+- problem: reloaded models point into a dead Python session.
+- finding, code-verified: the rebuild recipe already exists (`R/dag_class.R:44,50,73`) and is applied only in the parallel branch (`R/sampler_class.R:122-127`).
+- fix: add a `py_xptr_stale()` predicate and route every Python-handle use in `dag_class`/`sampler` through a self-healing accessor that rebuilds the tf environment on staleness, deleting the parallel-only special case at `R/sampler_class.R:122-127`; keep `awaken_greta_model()` as a now-optional wrapper.
+- **the type assumption is verified, not assumed.** `self$tf_log_prob_function` — the return of `tensorflow::tf_function()` — has an S3 class vector terminating in `python.builtin.object`, exactly what `py_is_null_xptr()` requires. Across separate `Rscript` processes the predicate returns `FALSE` live and `TRUE` on a genuinely dead handle, and the rebuild recipe restores a working one. `is.null()` alone returns `FALSE` after reload (class attributes survive serialisation; only the pointer is nulled), so the `py_is_null_xptr()` arm **is required**. The predicate is also safe to call before Python is initialised.
+- **step 4 is load-bearing, not optional.** A dag-only rebuild fixes `mcmc()` but leaves `extra_samples()` **broken** — that dead handle lives on the *sampler*, not the dag. Verified directly. Shipping steps 1-3 alone ships with `extra_samples()` still broken.
+- **sequencing warning:** do not delete `R/sampler_class.R:122-127` before step 4 lands. That block is currently the only thing making parallel MCMC work, so deleting it early regresses [#509](https://github.com/greta-dev/greta/issues/509) from working to broken. The deletion and the sampler-side accessor must be in the same PR.
+- scope correction: the fix document lists `R/calculate.R` and `R/greta_model_class.R` (plot) among files needing re-pointing. **Neither does** — both already work on a reloaded model. Harmless to include, but it inflates the estimate.
+- proposed fix: see [fixes/issue-595.md](fixes/issue-595.md). All its `file:line` references were checked and are accurate.
+- priority: high (headline of this milestone).
+
+::: {.callout-note}
+#### The [#595](https://github.com/greta-dev/greta/issues/595) approach is sound - the type assumption was verified
+
+This previously carried a warning that the whole design rested on an
+unverified assumption: that `py_is_null_xptr()` would behave correctly
+on `self$tf_log_prob_function`, which is the return of
+`tensorflow::tf_function()` rather than a raw reticulate handle. **The
+feared type mismatch does not exist.** That object's S3 class vector
+terminates in `python.builtin.object`, exactly what
+`py_is_null_xptr()` requires. Verified across separate `Rscript`
+processes: the predicate returns `FALSE` on a live handle (no spurious
+rebuilds) and `TRUE` on a genuinely dead one, and the rebuild recipe
+restores a working handle. Note `is.null()` alone returns `FALSE` after
+reload - class attributes survive serialisation and only the external
+pointer is nulled - so the `py_is_null_xptr()` arm of the disjunction is
+doing the real work and **is required**. Proceed as designed.
+
+Two implementation caveats, both load-bearing:
+
+1. **Step 4 is not optional.** A dag-only rebuild (steps 1-3) fixes
+   `mcmc()` but leaves `extra_samples()` **broken**, because that dead
+   handle lives on the *sampler* object, not the dag. Verified directly.
+   A fix shipping only steps 1-3 ships with `extra_samples()` still
+   broken.
+2. **Do not delete `R/sampler_class.R:122-127` before step 4 lands.**
+   That block is currently the *only* thing making parallel MCMC work.
+   Deleting it first would regress
+   [#509](https://github.com/greta-dev/greta/issues/509) from **working
+   to broken**. Since a dag-only rebuild demonstrably does not heal
+   `tf_evaluate_sample_batch`, this is a live risk, not a theoretical
+   one: the deletion and the sampler-side accessor must land in the same
+   PR, guarded by the parallel test.
+:::
+
+### [Issue #599](https://github.com/greta-dev/greta/issues/599)
+
+- 2023-12-15
+- Up Next
+- greta listed in a targets workflow's `imports` should invalidate correctly.
+- problem: targets change-tracking of greta objects.
+- **does not reproduce, and the premise is inverted — a candidate to close on the evidence below rather than to fix.** Four real `targets` pipelines were run. With the awaken hook, `imports = "greta"` works *and* correctly skips on re-run; without it, `packages = "greta"` fails too, with a byte-identical error. The discriminating variable is not `imports` — it is plain [#595](https://github.com/greta-dev/greta/issues/595).
+- finding: follows directly once [#595](https://github.com/greta-dev/greta/issues/595) makes objects reload-safe, at which point *both* `packages` and `imports` work with no hook at all.
+- fix: docs + integration test, **no code change**. Step 3 of the fix document (a stable session-independent hash to support `imports`) is **unnecessary** — `imports` already hashes stably and invalidates correctly. The `imports` variant of the acceptance test should be asserted to **pass**, not skip-documented.
+- for the vignette rather than the tracker: `imports` re-runs cost **6.9 s vs 37 ms** for the skip check because targets hashes greta's whole namespace, and an identical model serialises to **1.70 MB under `imports` vs 493 kB under `packages`**. Both support the `packages` + `renv` recommendation on performance grounds alone.
+- proposed fix: see [fixes/issue-599.md](fixes/issue-599.md).
+- priority: medium (rides on [#595](https://github.com/greta-dev/greta/issues/595)).
+- defect in the proposed fix: the acceptance test in `fixes/issue-599.md` does not run. It builds on `distribution(as_data(rnorm(10))) <- normal(mu, 1)`, which parses but fails at runtime with *"target of assignment expands to non-language object"* - a replacement function needs an assignable name on the left, so the test fails at model definition, before reaching the behaviour under test. Assign first: `y <- as_data(rnorm(10))`, then `distribution(y) <- normal(mu, 1)`.
+
+### [Issue #601](https://github.com/greta-dev/greta/issues/601)
+
+- 2024-01-16
+- (none)
+- Plotting a greta dag after reloading the model doesn't always work.
+- problem: `plot()` touches a dead handle.
+- **does not reproduce in any state constructible — but confirm with the reporter before closing.** `plot()` returned a valid `grViz` htmlwidget in all four states tested (first thing in a fresh session, after a failed `mcmc()`, after a hand-written awaken, and on a simple model), across two model shapes including one rich in operation nodes.
+- finding: **not** a dead-pointer path at all. `plot.greta_model` (`R/greta_model_class.R:154`) touches only R-side structure — `adjacency_matrix` (pure R, `R/dag_class.R:809-816`), `names(node_list)`, `node_types`, `plotting_label()`, `visible_greta_arrays`. Nothing dereferences a Python handle, so there is no dead pointer for it to hit. The fix document's step 1 audit is already satisfied and its concern about guarding `adjacency_matrix` is unnecessary.
+- caveat: the issue says plotting "doesn't *always* work" and the reporter's `example-greta-targets` setup was not reproduced verbatim. A missing DiagrammeR (`check_diagrammer_installed()`, `R/greta_model_class.R:155`) is a plausible alternative cause with nothing to do with dead pointers. **One round-trip with the reporter before closing.**
+- fix: **write no code.** Land the acceptance test only — the `ok_plot` assertion folded into the [#595](https://github.com/greta-dev/greta/issues/595) `callr` round-trip. It passes against 0.6.0 today, which makes it a regression guard rather than a bug fix.
+- proposed fix: see [fixes/issue-601.md](fixes/issue-601.md).
+- priority: medium (rides on [#595](https://github.com/greta-dev/greta/issues/595)).
+
+### [Issue #701](https://github.com/greta-dev/greta/issues/701)
+
+- 2024-08-16
+- (none)
+- Explore GitHub Discussions over the Discourse forum.
+- finding: the appendix marks this moot; a community-venue decision.
+- fix: no package code - a maintainer decision: either enable GitHub Discussions on `greta-dev/greta` (and import/redirect notable Discourse threads) or explicitly keep the Discourse forum and document the choice in `CONTRIBUTING`/README, then close. Acceptance: the chosen venue is linked from the repo and site. Independent of all code work.
+- priority: low.
+

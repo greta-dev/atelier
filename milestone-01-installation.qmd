@@ -1,0 +1,115 @@
+# Installation that explains itself when it fails {#sec-installation}
+
+- What is left of the installation cluster once the TensorFlow unpin
+  shipped. Grouping label: the `installation` cluster.
+- The theme is diagnosis, not capability: when installing greta or
+  loading its Python stack goes wrong, greta should say *what* failed
+  and *what to do next*, rather than reporting the same message
+  whatever the cause.
+
+**The unpin has shipped.** greta now uses the Keras 3 optimiser API
+and supports TensorFlow 2.18 to 2.21, TensorFlow Probability 0.25, and
+Python 3.10 or later. That closed most of what used to sit in this
+milestone.
+
+What survives is the part the unpin never addressed. greta's install
+path writes a logfile nobody reads, its `cli` output is truncated in
+places, and a failure to load Python, TensorFlow or TensorFlow
+Probability used to produce one undifferentiated message. Some of that
+is already better - the load-path error now names which component
+failed ([#825](https://github.com/greta-dev/greta/issues/825)) - but
+the remaining eight issues are all versions of the same complaint:
+greta knows more about the failure than it tells you.
+
+None of these block anything else in the plan, and none depend on each
+other. Any subset is a shippable patch.
+
+## Sprint item: retire the `#TF1/2` code markers {#sec-tf-markers}
+
+*This needs no new issue: it is
+[#745](https://github.com/greta-dev/greta/issues/745).* What follows is the
+approach for that issue, not separate work.
+
+Roughly 40 `#TF1/2` markers remain in `R/` (`grep -rn "TF1/2" R/`),
+flagging code written for the TF1→TF2 transition that may now be dead,
+redundant, or wrong under a modern TF. [#745](https://github.com/greta-dev/greta/issues/745) asks for them to be bundled
+into issues; that work belongs to the unpin, since the unpin is when
+their assumptions are actually tested.
+
+**Approach.** Sweep the markers during the unpin, sort each into
+delete / keep-and-unmark / file-as-issue, and close [#745](https://github.com/greta-dev/greta/issues/745) once the
+sweep is done — not before.
+
+
+### [Issue #546](https://github.com/greta-dev/greta/issues/546)
+
+- 2022-08-09
+- Up Next, TF2, impact-1
+- The retracing warning in TF2.
+- problem: real, intermittent, TF-version-sensitive; the maintainer wants it resolved early.
+- finding: `tf_function` retracing is triggered by shape/dtype churn; this milestone is inside the `tf_function` plumbing anyway (unpin), so it is the cheapest moment to investigate. Not sweep-closable - it records real behaviour.
+- fix: stabilise input signatures on the compiled functions (`R/dag_class.R:50`, `R/sampler_class.R:74`); if unreproducible, diagnose and document.
+- priority: high (explicit maintainer steer).
+
+### [Issue #663](https://github.com/greta-dev/greta/issues/663)
+
+- 2024-08-05
+- installation, Up Next
+- Grep through installation logfiles for diagnosis.
+- finding: a diagnostic convenience over the installer logs.
+- fix: a log-grep helper surfaced by `greta_sitrep()`.
+- priority: low.
+
+### [Issue #670](https://github.com/greta-dev/greta/issues/670)
+
+- 2024-08-05
+- (none)
+- cli cuts off installation text.
+- finding: a cli width/wrapping bug in the installer output.
+- fix: set explicit widths; overlaps [#713](https://github.com/greta-dev/greta/issues/713).
+- priority: low.
+
+### [Issue #684](https://github.com/greta-dev/greta/issues/684)
+
+- 2024-08-08
+- installation, Up Next
+- Suggest `reinstall_greta_deps()` under certain conditions.
+- finding: a targeted message in the check path.
+- fix: detect the conditions; suggest the reinstall.
+- priority: low.
+
+### [Issue #685](https://github.com/greta-dev/greta/issues/685)
+
+- 2024-08-08
+- installation, Up Next
+- An environment variable to allow "invalid" TF/TFP/Python setups.
+- finding: an escape hatch for advanced users pinning their own stack.
+- fix: honour an envvar that bypasses the version gate with a warning.
+- priority: low-medium.
+
+### [Issue #713](https://github.com/greta-dev/greta/issues/713)
+
+- 2024-08-21
+- (none)
+- A blank space appears in the logfile.
+- finding: cosmetic; overlaps [#670](https://github.com/greta-dev/greta/issues/670).
+- fix: trim the stray whitespace in log output.
+- priority: low.
+
+### [Issue #719](https://github.com/greta-dev/greta/issues/719)
+
+- 2024-08-23
+- installation
+- Recommend a fix for a specific common install error.
+- finding: a targeted error-to-suggestion mapping.
+- fix: detect the error string; suggest the remedy.
+- priority: low.
+
+### [Issue #745](https://github.com/greta-dev/greta/issues/745)
+
+- 2024-11-07
+- (none)
+- Identify the TF1/2 markers in the code.
+- finding: a self-referential triage chore; overlaps the dead-branch cleanup.
+- fix: audit TF1/2 markers; remove dead TF1 paths.
+- priority: low (close).

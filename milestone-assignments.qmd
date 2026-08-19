@@ -1,0 +1,293 @@
+---
+title: "greta milestone assignments"
+subtitle: "Migration preview --- nothing applied"
+date: "18 August 2026"
+format:
+  pdf:
+    documentclass: article
+    papersize: a4
+    fontsize: 10pt
+    geometry:
+      - top=18mm
+      - bottom=18mm
+      - left=18mm
+      - right=40mm
+    colorlinks: false
+    number-sections: false
+    include-in-header:
+      text: |
+        \usepackage{array}
+        \renewcommand{\arraystretch}{1.6}
+        \setlength{\tabcolsep}{6pt}
+---
+
+152 open issues, 152 with a milestone, 0 deferred, across 13 milestones. Milestones are work buckets, not releases: a release is cut when a coherent batch is ready, so a milestone may span several. Titles carry no version. Assignments read out of the design book; the wide margin is for notes.
+
+\newpage
+
+# 1. Installation that explains itself when it fails
+
+8 open issues.
+
+| | issue | links |
+|:--|:----------------------------------------------------------------|:--------------|
+| $\square$ | **#546** Explore retracing warning in TF2 |  |
+| $\square$ | **#663** Create functions to grep through installation logfiles (stdout / stderr) |  |
+| $\square$ | **#670** Check why cli cuts off the text being printed with installation |  |
+| $\square$ | **#684** Issue warning / suggest using `reinstall\_greta\_deps()` under certain conditions |  |
+| $\square$ | **#685** Use an environment variable to allow for invalid TF/TFP/Python installation setups |  |
+| $\square$ | **#713** Fix blank space in logfile? |  |
+| $\square$ | **#719** Possible error to recommend a fix for |  |
+| $\square$ | **#745** Identify issues in TF1/2 markers |  |
+
+\newpage
+
+# 2. Sampling correctness bugs
+
+10 open issues.
+
+| | issue | links |
+|:--|:----------------------------------------------------------------|:--------------|
+| $\square$ | **#241** error when thinning with lots of bad samples in mcmc | #318 #567 #609 |
+| $\square$ | **#279** Possible memory leak in mcmc function | #546 |
+| $\square$ | **#285** Greta not respecting random seed? | #427 |
+| $\square$ | **#318** `thin` and `pb\_update` combinations result in `tensorflow` errors | #241 #567 #609 |
+| $\square$ | **#427** specific seed is only respected after tf has been initialised? |  |
+| $\square$ | **#567** extra\_samples fails when when thin, pb\_update and/or n\_samples are not multiples | #318 |
+| $\square$ | **#577** TF2 error - Failure (`test\_inference.R:351`): numerical issues are handled in mcmc |  |
+| $\square$ | **#609** Thinning creates python error when n\_samples is 1000 and thin = 100 | #318 |
+| $\square$ | **#617** calculate() hangs with NaN parameters in sampling distribution in tf2 branch |  |
+| $\square$ | **#736** update documentation for setting seed in MCMC | #285 #427 |
+
+\newpage
+
+# 3. greta arrays behave the way R leads you to expect
+
+19 open issues.
+
+| | issue | links |
+|:--|:----------------------------------------------------------------|:--------------|
+| $\square$ | **#196** replace values in a variable greta array? | #512 #552 |
+| $\square$ | **#210** add for loop-type constructor |  |
+| $\square$ | **#216** Potential bug with diag | #583 |
+| $\square$ | **#256** How to use conditionals? |  |
+| $\square$ | **#263** add R numeric versions of greta operation functions  | #586 |
+| $\square$ | **#366** get\_unique\_name() in node\_class.R might not be unique |  |
+| $\square$ | **#504** sd() on greta\_array does not return a greta\_array |  |
+| $\square$ | **#512** Cbind or subsetting greta\_array with fixed zeros  | #552 |
+| $\square$ | **#514** apply not working on greta\_array | #504 |
+| $\square$ | **#520** calculate doesn't work on data array? |  |
+| $\square$ | **#528** mixture() doesn't work with single-column arrays |  |
+| $\square$ | **#532** Make `greta::round` use tensorflow digits arg instead of warning |  |
+| $\square$ | **#552** in replacement of greta array values fix replacement value being overwritten early | #512 |
+| $\square$ | **#583** error retrieving diagonal from rectangular matrix | #216 |
+| $\square$ | **#611** greta\_conflicts() |  |
+| $\square$ | **#728** error in calculate call when using mixture distribution | #528 |
+| $\square$ | **#783** `tapply` cannot produce 2D table from greta arrays | #514 |
+| $\square$ | **#798** future: value(fs) is better than lapply(fs, value) |  |
+| $\square$ | **#800** greta messes up the arguments in backsolve/forwardsolve for non greta arrays |  |
+
+\newpage
+
+# 4. Faster and adaptive sampling
+
+9 open issues.
+
+| | issue | links |
+|:--|:----------------------------------------------------------------|:--------------|
+| $\square$ | **#181** Using the same model for different data sets | #739 |
+| $\square$ | **#314** greta goes NUTS |  |
+| $\square$ | **#358** [Feature Request] Save draws to disk straight from python/TF rather than serialize and pull into R |  |
+| $\square$ | **#547**  Do more in tensorflow instead of coming back to R repeatedly |  |
+| $\square$ | **#568** Implement new TFP optimisers? | #569 |
+| $\square$ | **#569** Extract convergence and iteration information from TF2 optimisers |  |
+| $\square$ | **#739** Add data interface into log prob | #181 #519 |
+| $\square$ | **#765** Add snaper HMC sampler |  |
+| $\square$ | **#790** code for comparing HMC to Adaptive HMC | #765 |
+
+\newpage
+
+# 5. MCMC ergonomics and documentation
+
+14 open issues.
+
+| | issue | links |
+|:--|:----------------------------------------------------------------|:--------------|
+| $\square$ | **#146** a 'benchmarking' website section |  |
+| $\square$ | **#147** vignette on writing efficient greta code | #210 #358 |
+| $\square$ | **#271** example code of opt in the reference manual | #681 |
+| $\square$ | **#294** increase default number of chains... by a lot |  |
+| $\square$ | **#413** Sample initial values from priors when doing any inference | #440 #584 |
+| $\square$ | **#439** Methods for extracting out MCMC behaviour from greta model |  |
+| $\square$ | **#450** Evaluate using `progressr` R package? | #773 |
+| $\square$ | **#541** Provide a guide/tips/FAQ for fitting and troubleshooting MCMC |  |
+| $\square$ | **#649** Add `thin()` method for calculate / greta mcmc objects |  |
+| $\square$ | **#651** Splitting calculate into separate functions |  |
+| $\square$ | **#681** Documentation for `opt` please | #271 |
+| $\square$ | **#718** Add more detail as to which samplers are provided in greta in `?samplers` |  |
+| $\square$ | **#731** Function for estimating time to model fit? |  |
+| $\square$ | **#773** Abstract progress bars |  |
+
+\newpage
+
+# 6. Distributions, and untying the Cholesky/LKJ knot
+
+17 open issues.
+
+| | issue | links |
+|:--|:----------------------------------------------------------------|:--------------|
+| $\square$ | **#159** better error for wishart with insufficient df | #646 |
+| $\square$ | **#252** Probit function  |  |
+| $\square$ | **#264** add ordered logit distribution |  |
+| $\square$ | **#274** bad variable constraints for pareto distribution |  |
+| $\square$ | **#288** Include example Stagnant from winbugs |  |
+| $\square$ | **#339** add transformed\_variable node type | #440 #584 |
+| $\square$ | **#347** Calculate fail for hierarchical models |  |
+| $\square$ | **#406** misspecified horseshoe prior examples |  |
+| $\square$ | **#428** dodgy simulations from truncated distributions  |  |
+| $\square$ | **#440** initial\_values seem to fail with LKJ priors | #339 #584 |
+| $\square$ | **#584** Implement helper function to provide better initial values | #339 #413 #440 |
+| $\square$ | **#589** Cholesky fails on a non-M1 system |  |
+| $\square$ | **#646** Capture error of wishart distribution having incorrect parameters | #159 |
+| $\square$ | **#737** add reference implementation of the normalising constant in lkj distribution  |  |
+| $\square$ | **#748** TF dimension error when initialising in a model with a simplex variable | #749 |
+| $\square$ | **#749** weird error message when trying to initialise a simplex | #748 |
+| $\square$ | **#761** enable mixture of well-defined continuous distributions with point masses | #339 #347 #440 #584 #589 #692 #737 |
+
+\newpage
+
+# 7. Make the test suite trustworthy
+
+13 open issues.
+
+| | issue | links |
+|:--|:----------------------------------------------------------------|:--------------|
+| $\square$ | **#395** Explore using {patrick} for parameterized testing in {greta} |  |
+| $\square$ | **#408** create dockerfiles to test development and for users |  |
+| $\square$ | **#433** get as close to 100\% code coverage as possible |  |
+| $\square$ | **#563** explore using expect\_no\_error(), expect\_no\_warning(), expect\_no\_message(), and expect\_no\_condition() | #591 |
+| $\square$ | **#591** Use `expect\_no\_error()` over `expect\_ok`  | #563 |
+| $\square$ | **#596** add more test and edge cases for `gradient\_descent()` |  |
+| $\square$ | **#624** Speed up testing in greta |  |
+| $\square$ | **#695** Consider changing snapshot tests for calculate |  |
+| $\square$ | **#708** Different way to avoid using `skip\_if\_not(check\_tf\_version())` - perhaps set an envvar? |  |
+| $\square$ | **#715** Consider writing custom expectations using the formal testthat way |  |
+| $\square$ | **#723** Separate out key parts of `check\_*` functions in `test\_posteriors.R` |  |
+| $\square$ | **#727** Add tests for `check\_for\_free\_state\_error` |  |
+| $\square$ | **#751** Add tests for as\_tf\_function |  |
+
+\newpage
+
+# 8. Printing, display, and friendly errors
+
+22 open issues.
+
+| | issue | links |
+|:--|:----------------------------------------------------------------|:--------------|
+| $\square$ | **#144** Clearer documentation |  |
+| $\square$ | **#257** Tidyverse/tidymodels compatibility | #439 |
+| $\square$ | **#375** explore using classed errors in rlang's abort, warn, inform |  |
+| $\square$ | **#376** ensure functions use named arguments whenever possible |  |
+| $\square$ | **#385** establish an AST/text based print method of greta model | #610 |
+| $\square$ | **#481** Could calculate return a custom class, "greta\_calculate" or something? | #650 |
+| $\square$ | **#610** Create two plot options for greta models - compute method and dag |  |
+| $\square$ | **#615** Capture errors in misspelt argument names | #784 |
+| $\square$ | **#622** use `cli::test\_that\_cli()` for testing cli output |  |
+| $\square$ | **#625** data frame printing and overwriting methods for greta arrays | #648 |
+| $\square$ | **#648** Consider using vctrs for underlying greta array / unknowns classes | #625 |
+| $\square$ | **#650** better print method for calculate results | #481 |
+| $\square$ | **#653** Add custom summary method for greta MCMC chains |  |
+| $\square$ | **#656** greta array print method for many columns |  |
+| $\square$ | **#657** Explore max width issues for MCMC output | #656 |
+| $\square$ | **#690** Print method for wishart distribution has 0s? |  |
+| $\square$ | **#691** Printing: Add dimension information to greta array objects |  |
+| $\square$ | **#692** Cholesky factor should be upper triangular to match R's behaviour |  |
+| $\square$ | **#697** Revisit checking functions | #375 |
+| $\square$ | **#767** Consider using cli for nicer printing of sampler objects? |  |
+| $\square$ | **#784** wonky error messages in calculate |  |
+| $\square$ | **#785** Update cli\_process\_* functions |  |
+
+\newpage
+
+# 9. Session portability, targets, and community
+
+6 open issues.
+
+| | issue | links |
+|:--|:----------------------------------------------------------------|:--------------|
+| $\square$ | **#509** MCMC crashes using future::plan(cluster) or future::plan(multisession) | #595 |
+| $\square$ | **#557** explore use of {bundle} pkg for storing greta models | #595 |
+| $\square$ | **#595** Detect and "awaken" dead pointers so greta can work with targets | #509 |
+| $\square$ | **#599** greta in "imports" of a targets workflow | #595 |
+| $\square$ | **#601** plotting greta dag when reloading model doesn't always work | #595 |
+| $\square$ | **#701** Explore using discussions over discourse forum? |  |
+
+\newpage
+
+# 10. GPU and hardware support
+
+4 open issues.
+
+| | issue | links |
+|:--|:----------------------------------------------------------------|:--------------|
+| $\square$ | **#246** tensorflow-cuda not working with greta | #545 |
+| $\square$ | **#472** Explore options for using TF installs that are compiled for AVX or AVX2 |  |
+| $\square$ | **#545** Implement interface to control CPU and GPU setup | #246 #704 |
+| $\square$ | **#704** Explore changing using `with(tf$device())` | #545 |
+
+\newpage
+
+# 11. The backend abstraction: op dictionary and node registry
+
+7 open issues.
+
+| | issue | links |
+|:--|:----------------------------------------------------------------|:--------------|
+| $\square$ | **#155** cache results of operations on data greta arrays |  |
+| $\square$ | **#156** add types to greta arrays |  |
+| $\square$ | **#247** Discussion) A generalization of `greta`'s DAG construction for matrices/arrays |  |
+| $\square$ | **#309** speed up greta:::tf\_extract() and greta:::tf\_replace() |  |
+| $\square$ | **#581** Implement `outer` function in greta |  |
+| $\square$ | **#586** Alternative backends with greta (e.g., torch, xtensor) |  |
+| $\square$ | **#705** Explore method dispatch to avoid if(class(thing)) do (function) else do (other\_function) | #210 #294 #309 #358 #547 |
+
+\newpage
+
+# 12. Advanced modelling: marginalisation, decentring, new distributions
+
+8 open issues.
+
+| | issue | links |
+|:--|:----------------------------------------------------------------|:--------------|
+| $\square$ | **#42** survival analysis module  | #369 |
+| $\square$ | **#47** automatically decentre symmetric distributions |  |
+| $\square$ | **#157** add helper functions for marginalising discrete random variables |  |
+| $\square$ | **#191** Sampling from discrete distribution and prior sensitivities | #157 |
+| $\square$ | **#272** Use more tfp distributions | #369 |
+| $\square$ | **#345** Bayesian R square for greta model |  |
+| $\square$ | **#369** Helper functions to establish new TFP / greta distributions | #42 #264 #272 |
+| $\square$ | **#519** Implement DIC and other model evaluation metrics? |  |
+
+\newpage
+
+# 13. Developer tooling and repo housekeeping
+
+15 open issues.
+
+| | issue | links |
+|:--|:----------------------------------------------------------------|:--------------|
+| $\square$ | **#322** coding sprint plan 2020 |  |
+| $\square$ | **#368** use lifecycle package to manage deprecation / stability / experimental |  |
+| $\square$ | **#435** Add a blog component to the website |  |
+| $\square$ | **#442** look into adding @examplesIf in roxygen |  |
+| $\square$ | **#505** add a few more examples for predicting to new data for more complex model structures |  |
+| $\square$ | **#571** Improve documentation on non-independent sampling using greta\_array() |  |
+| $\square$ | **#623** Literature on Greta |  |
+| $\square$ | **#716** get linter up and working again |  |
+| $\square$ | **#721** update language file to indicate that this is R not C++ |  |
+| $\square$ | **#724** Explore using roxygen `family` tag to connect related functions |  |
+| $\square$ | **#744** revisit TODO list and identify issues |  |
+| $\square$ | **#768** use penguins data in greta examples |  |
+| $\square$ | **#803** *(was marked "move to later" --- is housekeeping right?)* Revisit R6 documentation with roxygen? |  |
+| $\square$ | **#812** Resolve the greta website issue |  |
+| $\square$ | **#822** establish greta blog |  |

@@ -1,0 +1,814 @@
+# greta.distributions {#sec-greta-distributions}
+
+::: {.callout-note}
+## Summary
+
+- **greta.distributions is ready for a first CRAN release.** The
+  package checks `0 errors | 0 warnings | 0 notes` at version 0.1.0,
+  and both shipped distributions are verified correct to machine
+  precision against `extraDistr`.
+- **The purpose of the package is to give people more distributions.**
+  Everything else - the tooling for authoring new distributions - is
+  secondary and does not ship in 0.1.0 (@sec-gd-scope).
+- The public surface of 0.1.0 is therefore exactly two functions:
+  `zero_inflated_poisson()` and `zero_inflated_negative_binomial()`.
+- All 21 open issues and 6 open pull requests are grouped into **five
+  milestones**, each carrying a semantic version derived from what it
+  changes (@sec-gd-versioning).
+- **Six issues close with the first release** ([#30](https://github.com/greta-dev/greta.distributions/issues/30), [#32](https://github.com/greta-dev/greta.distributions/issues/32), [#34](https://github.com/greta-dev/greta.distributions/issues/34), [#25](https://github.com/greta-dev/greta.distributions/issues/25), [#26](https://github.com/greta-dev/greta.distributions/issues/26),
+  and the [#29](https://github.com/greta-dev/greta.distributions/issues/29) tracking issue), because the work they ask for is
+  already done and verified.
+- **Two of the six open PRs are already absorbed** into the current
+  working tree ([#35](https://github.com/greta-dev/greta.distributions/issues/35), [#31](https://github.com/greta-dev/greta.distributions/issues/31)). The other four ([#33](https://github.com/greta-dev/greta.distributions/issues/33), [#16](https://github.com/greta-dev/greta.distributions/issues/16), [#10](https://github.com/greta-dev/greta.distributions/issues/10), [#9](https://github.com/greta-dev/greta.distributions/issues/9)) all
+  predate greta 0.6.0 and **none of them has a working
+  density-correctness test** - that single fact is the reason none can
+  be merged as-is.
+
+:::
+
+## Current status {.unnumbered}
+
+**greta.distributions** provides extra probability distributions for
+greta, plus tooling for writing new ones. It has never been on CRAN.
+
+Where things stand in July 2026:
+
+- The package sits on branch `add-tf-zip-nb` with **uncommitted work in
+  the tree**. That work took it from "will not load" to a clean check
+  at 0.1.0. Nothing here is committed; every recommendation below is a
+  recommendation, not an executed change.
+- Two distributions ship: `zero_inflated_poisson()` and
+  `zero_inflated_negative_binomial()`. Both are **verified correct**:
+
+  ```
+  ZINB greta: -1.6094379 -1.6094379 -21.0517699 -19.4523823 -16.1738951 -12.8689555
+  ZINB R    : -1.6094379 -1.6094379 -21.0517699 -19.4523823 -16.1738951 -12.8689555
+  max abs diff: 5.33e-15
+
+  ZIP greta:  -1.1767850 -1.1767850  -1.5299964  -1.5299964  -3.5448994 -10.3960843
+  ZIP R    :  -1.1767850 -1.1767850  -1.5299964  -1.5299964  -3.5448994 -10.3960843
+  max abs diff: 8.88e-16
+  ```
+
+  (against `extraDistr::dzinb` and `extraDistr::dzip`; the test suite
+  runs the same comparison over 100 random draws in
+  `tests/testthat/test_zip_zinb.R:3` and `:63`.)
+- Both distributions sample end-to-end under greta 0.6.0. A 50-sample,
+  1-chain MCMC over 20 observations recovers sensible posteriors for
+  both.
+- The test suite is **8 passing tests**, up from 2.
+- **Four distribution PRs are stalled at 2022-2024 vintage.** They were
+  written against greta 0.4/0.5 and the `tf_distrib(parameters)`
+  signature; greta 0.6.0 requires `tf_distrib(parameters, dag)` and
+  batched (rank-3) tensors.
+
+## How versions are assigned {#sec-gd-versioning}
+
+The version comes from **what the milestone changes**, not when it ships.
+
+greta.distributions is pre-1.0 and its public surface is small - two
+distributions and four template functions - so nearly every milestone
+adds capability and earns a minor bump. The one exception is milestone
+1, which is a first release and takes 0.1.0 as given.
+
+The natural 1.0 candidate is whenever the extension-author API
+(milestone 4) stabilises, because that is the surface other packages
+would depend on. **Not yet decided.**
+
+## The milestones {.unnumbered}
+
+| # | Milestone | Version | Issues | PRs |
+|---|---|---|---|---|
+| 1 | First CRAN release | 0.1.0 | [#30](https://github.com/greta-dev/greta.distributions/issues/30), [#32](https://github.com/greta-dev/greta.distributions/issues/32), [#34](https://github.com/greta-dev/greta.distributions/issues/34), [#25](https://github.com/greta-dev/greta.distributions/issues/25), [#26](https://github.com/greta-dev/greta.distributions/issues/26), [#29](https://github.com/greta-dev/greta.distributions/issues/29), [#22](https://github.com/greta-dev/greta.distributions/issues/22), [#11](https://github.com/greta-dev/greta.distributions/issues/11) | [#35](https://github.com/greta-dev/greta.distributions/issues/35), [#31](https://github.com/greta-dev/greta.distributions/issues/31), [#33](https://github.com/greta-dev/greta.distributions/issues/33) |
+| 2 | The stalled distribution PRs | 0.2.0 | [#5](https://github.com/greta-dev/greta.distributions/issues/5), [#6](https://github.com/greta-dev/greta.distributions/issues/6), [#7](https://github.com/greta-dev/greta.distributions/issues/7), [#27](https://github.com/greta-dev/greta.distributions/issues/27), [#28](https://github.com/greta-dev/greta.distributions/issues/28) | [#9](https://github.com/greta-dev/greta.distributions/issues/9), [#10](https://github.com/greta-dev/greta.distributions/issues/10), [#16](https://github.com/greta-dev/greta.distributions/issues/16) |
+| 3 | The zero-inflation and hurdle family | 0.3.0 | [#20](https://github.com/greta-dev/greta.distributions/issues/20), [#21](https://github.com/greta-dev/greta.distributions/issues/21), [#18](https://github.com/greta-dev/greta.distributions/issues/18), [#14](https://github.com/greta-dev/greta.distributions/issues/14), [#19](https://github.com/greta-dev/greta.distributions/issues/19) | - |
+| 4 | The extension-author toolkit | 0.4.0 | [#4](https://github.com/greta-dev/greta.distributions/issues/4), [#12](https://github.com/greta-dev/greta.distributions/issues/12) | - |
+| 5 | Sufficient statistics | 0.5.0 | [#37](https://github.com/greta-dev/greta.distributions/issues/37) | - |
+
+**There is no separate documentation or testing milestone.** The
+vignette issues ([#11](https://github.com/greta-dev/greta.distributions/issues/11), [#22](https://github.com/greta-dev/greta.distributions/issues/22)) ship with the release they document; [#28](https://github.com/greta-dev/greta.distributions/issues/28)'s
+doc fix ships with the distribution it describes.
+
+---
+
+## Reconciling the uncommitted work with PRs [#35](https://github.com/greta-dev/greta.distributions/issues/35) and [#31](https://github.com/greta-dev/greta.distributions/issues/31) {#sec-gd-reconcile}
+
+This is the first thing to settle, because the uncommitted work
+overlaps both PRs and the overlap is not what it looks like from the
+issue titles.
+
+### PR [#35](https://github.com/greta-dev/greta.distributions/issues/35) is not superseded - the work sits *on top of it*
+
+The working tree is checked out on `add-tf-zip-nb`, which **is** PR
+[#35](https://github.com/greta-dev/greta.distributions/issues/35)'s branch. `git diff main add-tf-zip-nb` is a single file, 14
+insertions and 42 deletions, replacing the hand-written ZINB log
+density with TFP's `Inflated` wrapper.
+
+That commit, **as pushed, is broken**. It rewrote `tf_distrib` to use
+`tfp$distributions$Inflated` but simultaneously *deleted the `pi`
+parameter* from `initialize()`, leaving:
+
+```r
+initialize = function(size, prob, dim) {   # pi gone
+  ...
+  super$initialize("negative_binomial", dim, discrete = TRUE)   # wrong name
+```
+
+while the user-facing constructor still calls
+`distrib("zero_inflated_negative_binomial", size, prob, pi, dim)`. The
+uncommitted work repairs exactly this - restoring `pi` as a parameter,
+fixing the `super$initialize()` name, and keeping the TFP `Inflated`
+body (`R/zero_inflated_negative_binomial.R:34-53`).
+
+> Claude: so the correct end state is **merge PR [#35](https://github.com/greta-dev/greta.distributions/issues/35) with the
+> uncommitted repair squashed into it**, not "close [#35](https://github.com/greta-dev/greta.distributions/issues/35) as superseded".
+> The PR as it stands on GitHub would ship a ZINB that ignores its own
+> zero-inflation parameter. Merging it unrepaired would be worse than
+> not merging it. Flagging because this is the one place where the
+> obvious reading of the overlap is backwards.
+
+### PR [#31](https://github.com/greta-dev/greta.distributions/issues/31) is superseded, but it was also never going to pass
+
+PR [#31](https://github.com/greta-dev/greta.distributions/issues/31) adds two tests, both of which assert:
+
+```r
+expect_no_error(m <- model(example_zip))
+expect_no_error(mcmc(m, n_samples = 10, warmup = 10))
+```
+
+That expectation is **impossible for a discrete distribution**, and
+greta says so:
+
+```
+model(zip): ERROR: Model contains a discrete random variable that doesn't have
+a fixed value, so inference cannot be carried out.
+```
+
+A zero-inflated Poisson can only ever be a likelihood for observed
+data, never a free variable. PR [#31](https://github.com/greta-dev/greta.distributions/issues/31)'s tests would fail on the
+`model()` line even with the underlying bug fixed. The PR correctly
+identifies *what* to test (`calculate(nsim=)` works; sampling works)
+and gets the *how* wrong.
+
+The working tree now carries replacement tests that keep the intent
+and fix the mechanism - asserting `calculate(nsim=)` succeeds,
+asserting `model()` errors *on purpose*, and then running a real MCMC
+through `distribution(y) <- ...`
+(`tests/testthat/test_zip_zinb.R:18-61`). **Close [#31](https://github.com/greta-dev/greta.distributions/issues/31) as superseded.**
+
+---
+
+## Milestone 1: First CRAN release - 0.1.0
+
+Everything needed for a first submission. This is done.
+
+**Version: 0.1.0.** First release.
+
+### What 0.1.0 ships, and what it deliberately does not {#sec-gd-scope}
+
+The package exists so that greta users have access to **more
+distributions**. That is the whole product for the first release. The
+public surface is exactly two functions:
+
+```
+export(zero_inflated_negative_binomial)
+export(zero_inflated_poisson)
+```
+
+The four distribution-authoring functions -
+`greta_distribution_template()`, `greta_distribution_template_test()`,
+`write_new_distribution()` and `write_distribution_test()` - **are
+retained in the source but no longer exported** (`@export` became
+`@noRd`). They move to @sec-gd-toolkit.
+
+Three consequences, all of them simplifications:
+
+- **The naming question dissolves.** PR [#33](https://github.com/greta-dev/greta.distributions/issues/33) renames those four
+  functions and nothing else. With them unexported there is nothing
+  public to rename, and no deprecation cycle is ever owed - they were
+  never released. [#33](https://github.com/greta-dev/greta.distributions/issues/33) becomes milestone-4 work, to be settled alongside
+  whatever the eventual API is.
+- **The `\dontrun{}` exposure shrinks.** The blocks a first-submission
+  reviewer was most likely to challenge were on
+  `write_new_distribution()` and `write_distribution_test()`, which
+  write files to disk. Those examples are gone from the manual, and the
+  `path` argument that would have been needed to make them runnable is
+  no longer required.
+- **The broken template stops being a blocker.** The template generated
+  code that could not run (@sec-gd-changed); that is now fixed, but it
+  is no longer release-critical either way.
+
+Issues **[#11](https://github.com/greta-dev/greta.distributions/issues/11)** (vignette on creating a new distribution) and **[#22](https://github.com/greta-dev/greta.distributions/issues/22)**
+(vignette demonstrating distributions) both move out of this milestone
+for the same reason - [#11](https://github.com/greta-dev/greta.distributions/issues/11) documents unexported tooling, and [#22](https://github.com/greta-dev/greta.distributions/issues/22)
+documents an API that is still two distributions wide. They return when
+there is more to demonstrate.
+
+### [Issue #30](https://github.com/greta-dev/greta.distributions/issues/30)
+
+- 2024-12-18
+- zip and zinb don't work with MCMC and calculate.
+- problem: `calculate(zip, nsim = 10)` failed with a TF dtype error.
+- finding: **a scoping bug, not a maths bug.** `R/zero_inflated_poisson.R:62`
+  read `tfp$distributions$Binomial(total_count = 1, probs = pi)`. The
+  local parameter is bound as `pi_var` two lines earlier, so bare `pi`
+  resolved to **base R's `pi`, 3.141593**, which reticulate marshals as
+  a float64 tensor, colliding with greta's float32. Reproduced exactly
+  by reverting the one identifier in an isolated copy:
+
+  ```
+  ERROR: InvalidArgumentError: cannot compute Sub as input #1(zero-based)
+  was expected to be a double tensor but is a float tensor [Op:Sub]
+  ```
+
+  which is verbatim the error in the issue body.
+- fix: `pi` -> `pi_var`. Already in the working tree; regression tests
+  added at `tests/testthat/test_zip_zinb.R:18`.
+- note: the second half of the issue ("`model(zip)` fails") is **not a
+  bug** - it is greta correctly refusing to sample a free discrete
+  variable. Worth saying so in the close comment.
+- priority: done. **Close with the release.**
+
+### [Issue #32](https://github.com/greta-dev/greta.distributions/issues/32)
+
+- 2025-01-23
+- tfp has zero inflated negative binomial now?
+- finding: TFP 0.23.0 does expose the machinery, though the useful
+  entry point is the general `tfp$distributions$Inflated`, not
+  `ZeroInflatedNegativeBinomial`. Confirmed present in this
+  environment.
+- fix: delivered by PR [#35](https://github.com/greta-dev/greta.distributions/issues/35) plus the repair in @sec-gd-reconcile. The
+  ZINB is now four lines wrapping `Inflated` over `NegativeBinomial`
+  (`R/zero_inflated_negative_binomial.R:47-53`) instead of ~30 lines of
+  hand-rolled log density, and it matches `extraDistr::dzinb` to 5e-15.
+- priority: done. **Close with the release.**
+
+### [Issue #34](https://github.com/greta-dev/greta.distributions/issues/34)
+
+- 2025-01-24
+- Explore TF inflated distribution as a way of adding a point mass.
+- finding: same delivery as [#32](https://github.com/greta-dev/greta.distributions/issues/32); this is the general form of that
+  issue. The exploration is finished and the answer was yes.
+- fix: shipped.
+- priority: done. **Close with the release**, cross-referencing [#32](https://github.com/greta-dev/greta.distributions/issues/32).
+
+> Claude: [#32](https://github.com/greta-dev/greta.distributions/issues/32) and [#34](https://github.com/greta-dev/greta.distributions/issues/34) are near-duplicates. If you would rather keep one
+> open as the home for "apply `Inflated` to *other* base distributions"
+> (which is milestone 3's [#21](https://github.com/greta-dev/greta.distributions/issues/21) and [#20](https://github.com/greta-dev/greta.distributions/issues/20)), keep [#34](https://github.com/greta-dev/greta.distributions/issues/34) and move it there. I
+> have closed both here on the grounds that the specific question each
+> asks has been answered.
+
+### [Issue #25](https://github.com/greta-dev/greta.distributions/issues/25)
+
+- 2024-12-09
+- add example distributions in README.
+- finding: done in the working tree. The README now carries runnable
+  ZIP and ZINB likelihood examples plus a template example
+  (`README.Rmd:38-92`), replacing four empty section headings.
+- priority: done. **Close with the release.**
+
+### [Issue #26](https://github.com/greta-dev/greta.distributions/issues/26)
+
+- 2024-12-09
+- ensure all new distributions have example usage in the helpfile.
+- finding: done for both shipped distributions
+  (`R/zero_inflated_poisson.R:10-25`,
+  `R/zero_inflated_negative_binomial.R:10-24`). The issue also asks
+  "is there a way to render conditionally on pkgdown but not CRAN?" -
+  the answer is `@examplesIf` or pkgdown's own `\dontrun` handling, but
+  the current `\dontrun{}` approach is what greta itself does and is
+  what cran-comments.md explains to the reviewer.
+- priority: done. **Close with the release**, noting the standing
+  answer so it is not re-litigated.
+
+### [Issue #29](https://github.com/greta-dev/greta.distributions/issues/29)
+
+- 2024-12-17
+- Release greta.distributions 0.1.0. The tracking issue.
+- finding: of its checklist, `use_cran_comments()` (done - untracked
+  `cran-comments.md`), README install instructions (done),
+  `Title:`/`Description:` proofread (done - Description now cites
+  Lambert (1992) `<doi:10.2307/1269547>`), `@return` on all exports
+  (done), and `cph` role (done - `DESCRIPTION:8`) are all complete. The
+  remaining boxes are [#22](https://github.com/greta-dev/greta.distributions/issues/22) and [#11](https://github.com/greta-dev/greta.distributions/issues/11), below.
+- priority: **keep open until the submission**, then close.
+
+### Issues [#11](https://github.com/greta-dev/greta.distributions/issues/11) and [#22](https://github.com/greta-dev/greta.distributions/issues/22) - both moved out of this milestone
+
+- **[#11](https://github.com/greta-dev/greta.distributions/issues/11)** (2022-06-10): vignette on how to create a new greta
+  distribution. It documents the four authoring functions, which no
+  longer ship (@sec-gd-scope), so it moves to @sec-gd-toolkit. PR [#33](https://github.com/greta-dev/greta.distributions/issues/33)
+  supplies a draft (`vignettes/add-new-distribution.Rmd`, 48 lines),
+  but it documents template code that **did not work** in two
+  independent ways - [#33](https://github.com/greta-dev/greta.distributions/issues/33) fixes one and introduces a third. The template
+  itself is now repaired in the working tree (@sec-gd-changed); the
+  vignette needs rewriting against whatever API the toolkit eventually
+  settles on, which is not yet decided.
+- **[#22](https://github.com/greta-dev/greta.distributions/issues/22)** (2024-12-02): vignette demonstrating some new distributions.
+  Distinct from [#11](https://github.com/greta-dev/greta.distributions/issues/11) - this one is "here is ZIP/ZINB on a real dataset".
+  It moves to @sec-gd-prs, because a demonstration vignette is worth
+  writing once the package has more than two distributions to
+  demonstrate. The README examples ([#25](https://github.com/greta-dev/greta.distributions/issues/25)) already cover the two it has.
+
+Neither now blocks the first release. **[#29](https://github.com/greta-dev/greta.distributions/issues/29)'s checklist should be
+amended accordingly** - it lists both as release requirements, and
+that was written when the authoring tooling was considered part of the
+product.
+
+### PR [#35](https://github.com/greta-dev/greta.distributions/issues/35) - merge, with the repair squashed in
+
+- Verdict: **merge (after squashing the working-tree repair).** See
+  @sec-gd-reconcile. Do not merge the branch as it currently stands on
+  GitHub.
+
+### PR [#31](https://github.com/greta-dev/greta.distributions/issues/31) - close as superseded
+
+- Verdict: **close.** Replacement tests are in the working tree and
+  pass; PR [#31](https://github.com/greta-dev/greta.distributions/issues/31)'s own assertions could not have passed. See
+  @sec-gd-reconcile.
+
+### PR [#33](https://github.com/greta-dev/greta.distributions/issues/33) - rework, then merge
+
+- 2025-01-24, `demo-adding-new-distrib-i11`, conflicting with `main`.
+- Verdict: **rework.** Three separate things are tangled in this PR.
+- **(a) The API rename** - a decision, not a defect, and no longer
+  urgent: the functions it renames are unexported (@sec-gd-scope), so
+  no deprecation cycle is ever owed. Settle it alongside the toolkit
+  API (@sec-gd-form).
+- **(b) A real template bug, half-fixed.** greta's `distrib()` appends
+  the suffix itself:
+
+  ```r
+  constructor <- get(x = glue::glue("{distribution}_distribution"), envir = parent.frame())
+  ```
+
+  So the generated R6 class must be named `<name>_distribution` and the
+  `distrib()` call must pass the *bare* name. `main` got both wrong;
+  PR [#33](https://github.com/greta-dev/greta.distributions/issues/33) fixes the class name and breaks the call. All three forms
+  tested directly:
+
+  ```
+  main's template     distrib(gum, ...)                 ERROR: cannot coerce type 'environment' to vector of type 'character'
+  PR #33's template   distrib('gum_distribution', ...)  ERROR: object 'gum_distribution_distribution' not found
+  correct             distrib('gum', ...)               worked
+  ```
+
+  **Fixed in the working tree** (`R/distribution-template.R:8-9` and
+  `:178`). A generated template now round-trips: filling in only the
+  placeholders the template itself marks yields a working distribution
+  whose node class is `gumbel_distribution`.
+- **(c) The vignette** - keep, but it documents unexported tooling now,
+  so it rebases onto whatever the toolkit API becomes.
+- priority: **downgraded to milestone 4.** With the authoring functions
+  unexported (@sec-gd-scope), all three strands of this PR are about
+  code that does not ship in 0.1.0. The template bug (b) is already
+  fixed in the working tree regardless; (a) and (c) wait for
+  @sec-gd-toolkit.
+
+---
+
+## Milestone 2: The stalled distribution PRs - 0.2.0 {#sec-gd-prs}
+
+Land the four distributions that have been sitting in open PRs since
+2022. They are grouped together because they share one blocker and one
+gap.
+
+**Version: 0.2.0 (minor).** Adds distributions.
+
+**The shared blocker.** All three PRs were written against the
+`tf_distrib = function(parameters)` signature. greta 0.6.0 passes
+`dag` as a second argument, so every one of them fails at
+construction:
+
+```
+Error in `distrib_constructor(tf_parameter_list, dag = self)`: unused argument (dag = self)
+```
+
+That part is a one-line fix per file. The harder part is that greta
+0.6.0 batches tensors to rank 3, and the multivariate distributions
+([#9](https://github.com/greta-dev/greta.distributions/issues/9), [#10](https://github.com/greta-dev/greta.distributions/issues/10)) hit `tf$tile`:
+
+```
+Expected multiples argument to be a vector of length 3 but got length 2 [Op:Tile]
+```
+
+**The shared gap.** *None of the three PRs has a working
+density-correctness test.* In every case the `compare_distribution()`
+block is commented out:
+
+- `tests/testthat/test-conditional_bernoulli.R:1-10` - commented, and
+  the stub compares against `stats::dnorm`, which is not the
+  distribution.
+- `tests/testthat/test-multivariate-probit.R:6-15` - commented.
+- `tests/testthat/test-discrete_lognormal.R:17-42` - both blocks
+  commented, and the stubs reference `extraDistr::rzinb` for a
+  discrete *normal*.
+
+What passes in those PRs is argument-validation snapshot tests only
+(PR [#9](https://github.com/greta-dev/greta.distributions/issues/9)'s 6 green tests are all `expect_snapshot_error` on bad
+dimensions). **No reviewer should merge a distribution whose density
+has never been checked against a reference.** Each of these needs a
+`compare_distribution()` block before it lands - which is exactly what
+the shipped ZIP/ZINB have.
+
+### PR [#16](https://github.com/greta-dev/greta.distributions/issues/16) - split it; half works
+
+- 2022-07-27, `hrlai/main` (fork, Lai Hao Ran), conflicting, marked
+  draft by the author.
+- Verdict: **rework, and split into two.**
+- `discrete_normal()` **works end to end.** Constructed, attached as a
+  likelihood over binned data, and sampled: 50-sample MCMC on
+  `mean`/`sd` completed without error under greta 0.6.0. It already
+  uses the modern `tf_distrib(parameters, dag)` signature
+  (`R/discrete_normal.R:85`).
+- `discrete_lognormal()` **is broken, and always was.** It calls a
+  4-argument helper with 2 arguments:
+
+  ```
+  R/tf_functions.R:4       tf_safe_cdf <- function(x, distribution, lower_bound, upper_bound)
+  R/discrete_lognormal.R:84  low <- tf_safe_cdf(tf_lower_vec, d)
+  ```
+
+  Constructing and attaching it succeeds; MCMC fails with
+  `RuntimeError: argument "lower_bound" is missing, with no default`.
+  `discrete_normal.R:115-116` passes all four correctly, which is why
+  it works - the bug is confined to the lognormal.
+- Also: the two have **inconsistent signatures** -
+  `discrete_normal(mean, sd, breaks, edges, dim)` versus
+  `discrete_lognormal(meanlog, sdlog, breaks, dim)`. One of them
+  should lose or gain `edges`.
+- Also: the PR adds `R/conda_greta_env.R`, which is dead - greta 0.6.0
+  replaced conda with `uv`. Drop it.
+- fix: merge `discrete_normal` first with a density test; fix
+  `tf_safe_cdf` arity and reconcile the signature before merging
+  `discrete_lognormal`.
+- Resolves [#7](https://github.com/greta-dev/greta.distributions/issues/7).
+- priority: high - it is the closest of the three to done, and the
+  author is an outside contributor whose draft has been open since
+  2022.
+
+> Claude: PR [#16](https://github.com/greta-dev/greta.distributions/issues/16) is from a fork and has been open three and a half
+> years. Whatever the verdict, it probably deserves a comment saying
+> so. `discrete_normal` working is genuinely good news and worth
+> telling the author.
+
+### PR [#9](https://github.com/greta-dev/greta.distributions/issues/9) - rework, moderate
+
+- 2022-06-10, `add-conditional-bernouilli`, conflicting.
+- Verdict: **rework.**
+- The signature fix is one line (`R/conditional-bernoulli.R:94`).
+  After it, the distribution constructs and attaches as a likelihood
+  successfully.
+- `calculate(nsim=)` then gives a clean, honest greta error -
+  `Sampling is not yet implemented for "conditional_bernoulli"` -
+  because `sample = NULL` (`R/conditional-bernoulli.R:119`). So PR [#9](https://github.com/greta-dev/greta.distributions/issues/9)'s
+  own `test-calculate-distribution.R` assertion cannot pass; either
+  write a `sample` method or drop that test.
+- The remaining blocker is the rank-3 batching: evaluating the density
+  through greta 0.6.0's dag hits the `tf$tile` error above. This is
+  real work, not a signature tweak.
+- Resolves [#5](https://github.com/greta-dev/greta.distributions/issues/5) and [#27](https://github.com/greta-dev/greta.distributions/issues/27) (duplicates of each other).
+- priority: medium.
+
+### PR [#10](https://github.com/greta-dev/greta.distributions/issues/10) - rework, substantial
+
+- 2022-06-10, `add-multivariate-probit-i6`, conflicting.
+- Verdict: **rework - the most incomplete of the four.**
+- Same signature fix (`R/multivariate-probit.R:88`); after it,
+  construction succeeds.
+- But attaching it as a likelihood fails on its own dimension check:
+  `mean must be a 2D greta array with one column, but has dimensions 1 x 2`.
+  Its own test file passes `matrix(rnorm(2), nrow = 2)` for `mean`
+  while the docs describe `mean` per-realisation - the intended shape
+  contract is not settled.
+- Its only non-commented test fails: `calculate(mp, nsim = 1)` gives
+  *the target greta_arrays are related to variables that do not have
+  distributions so cannot be sampled*.
+- Resolves [#6](https://github.com/greta-dev/greta.distributions/issues/6).
+- priority: low - most work, least settled design.
+
+### [Issue #28](https://github.com/greta-dev/greta.distributions/issues/28)
+
+- 2018-10-04
+- possible typo in conditional_bernoulli docs.
+- finding: **the reporter is right, and the bug is still there in PR
+  [#9](https://github.com/greta-dev/greta.distributions/issues/9).** The docs give the density as
+
+  ```
+  psi * prod((p ^ y) * (1 - p) ^ (1 - y)) + max(y) * (1 - psi)
+  ```
+
+  (`R/conditional-bernoulli.R:23`) but the code computes
+
+  ```r
+  none <- tf_as_float(tf_rowsums(x, 1L) == 0)      # 1 iff all y are 0
+  prob <- exp(tf_rowsums(log_cp, 1L) + log(psi)) + none * (one - psi)
+  ```
+
+  (`R/conditional-bernoulli.R:103, :114`). `none` is `1 - max(y)` for
+  binary `y` - the opposite of the doc. The code is correct: under the
+  MacKenzie occupancy formulation the "absent" term contributes only
+  when the species was never detected. The documentation is wrong.
+- fix: `max(y)` -> `(1 - max(y))` in the roxygen `\deqn`. One word.
+- caveat: I could not evaluate the density numerically to confirm,
+  because the distribution does not run under greta 0.6.0's batching
+  (the `tf$tile` blocker above). The finding rests on reading an
+  unambiguous expression, not on execution. **Re-verify once PR [#9](https://github.com/greta-dev/greta.distributions/issues/9) is
+  reworked.**
+- priority: low, but free - ships with PR [#9](https://github.com/greta-dev/greta.distributions/issues/9).
+
+### Issues [#5](https://github.com/greta-dev/greta.distributions/issues/5), [#6](https://github.com/greta-dev/greta.distributions/issues/6), [#7](https://github.com/greta-dev/greta.distributions/issues/7), [#27](https://github.com/greta-dev/greta.distributions/issues/27)
+
+- These are the feature requests the three PRs implement: [#5](https://github.com/greta-dev/greta.distributions/issues/5)/#27
+  conditional bernoulli, [#6](https://github.com/greta-dev/greta.distributions/issues/6) multivariate probit, [#7](https://github.com/greta-dev/greta.distributions/issues/7) discrete
+  lognormal/normal.
+- [#5](https://github.com/greta-dev/greta.distributions/issues/5) (2022-06-10) and [#27](https://github.com/greta-dev/greta.distributions/issues/27) (2017-11-02) are **duplicates**; [#27](https://github.com/greta-dev/greta.distributions/issues/27) is the
+  original and has the fuller derivation. Keep [#27](https://github.com/greta-dev/greta.distributions/issues/27), close [#5](https://github.com/greta-dev/greta.distributions/issues/5) as a
+  duplicate, or vice versa - but not both.
+- Each closes when its PR lands.
+
+---
+
+## Milestone 3: The zero-inflation and hurdle family - 0.3.0
+
+Generalise what the ZINB rewrite proved: `tfp$distributions$Inflated`
+turns any base distribution into a zero-inflated one in four lines.
+That makes most of this milestone cheap.
+
+**Version: 0.3.0 (minor).** Adds distributions.
+
+### [Issue #20](https://github.com/greta-dev/greta.distributions/issues/20)
+
+- 2024-02-12
+- hurdles and zero inflated distributions.
+- finding: this is the **design issue that should be settled before
+  [#21](https://github.com/greta-dev/greta.distributions/issues/21) and [#18](https://github.com/greta-dev/greta.distributions/issues/18) are coded**, because it names the distinction: zero
+  inflation is a point mass *plus* a distribution that may already
+  contain zeros; a hurdle is a point mass *plus a truncated*
+  distribution. TFP's `Inflated` gives the first directly. The second
+  needs a truncation layer greta.distributions does not have.
+- fix: decide the interface for both, then implement.
+- priority: high - it gates the rest of the milestone.
+
+### [Issue #21](https://github.com/greta-dev/greta.distributions/issues/21)
+
+- 2024-08-20
+- Add zero inflated beta distribution.
+- finding: with `Inflated` established, this is the ZINB pattern over
+  `tfp$distributions$Beta`. Note it is *zero*-inflated beta, so the
+  support is [0,1) - a continuous distribution with a point mass, which
+  unlike ZIP/ZINB **can** be a free variable.
+- fix: four lines plus a density test.
+- priority: medium. ("For biocrust modelling by August" - that August
+  has passed; worth asking if the need is live.)
+
+### [Issue #18](https://github.com/greta-dev/greta.distributions/issues/18)
+
+- 2023-05-16
+- add Tweedie distribution.
+- finding: the requester (hrlai, same contributor as PR [#16](https://github.com/greta-dev/greta.distributions/issues/16)) points at
+  an upstream TFP PR. Needs checking whether it ever landed in TFP
+  0.23.0 - if not, this is a hand-written log density, which is a much
+  larger job than [#21](https://github.com/greta-dev/greta.distributions/issues/21).
+- priority: low.
+
+### [Issue #14](https://github.com/greta-dev/greta.distributions/issues/14)
+
+- 2022-06-16
+- add ordered_logit distribution.
+- finding: TFP has `OrderedLogistic`, so this is a wrapper. **Overlaps
+  greta issue [#264](https://github.com/greta-dev/greta/issues/264)**, which lists the same distribution in greta's own
+  milestone 5. One of the two packages should own it.
+- priority: medium.
+
+> Claude: [#14](https://github.com/greta-dev/greta.distributions/issues/14) here and [greta
+> [#264](https://github.com/greta-dev/greta/issues/264)](https://github.com/greta-dev/greta/issues/264) are the same
+> distribution. More generally, greta's milestone 5 and this package
+> both claim "new distributions". **Where is the line?** My assumption
+> throughout has been: greta ships the standard catalogue, and
+> greta.distributions ships the specialist and compound ones. If that
+> is right, ordered logit belongs *here* and greta [#264](https://github.com/greta-dev/greta/issues/264) should close
+> pointing at [#14](https://github.com/greta-dev/greta.distributions/issues/14).
+
+### [Issue #19](https://github.com/greta-dev/greta.distributions/issues/19)
+
+- 2024-02-08
+- Some more distributions to implement.
+- finding: a **backlog list**, not an actionable issue - it points at
+  glmmTMB's and gamlss's catalogues. The genuinely useful content is
+  the pointer to `gamlss.tr` for generic truncation, which is the
+  machinery [#20](https://github.com/greta-dev/greta.distributions/issues/20) needs for hurdles.
+- fix: keep as the milestone's parking lot; file specific issues off
+  it as they get picked up.
+- priority: low, never closes on its own.
+
+---
+
+## Milestone 4: The extension-author toolkit - 0.4.0 {#sec-gd-toolkit}
+
+Make "write your own greta distribution" a supported workflow rather
+than a copy-paste exercise. **This is where the four authoring
+functions now live**, unexported since 0.1.0 (@sec-gd-scope), together
+with everything that documents or renames them: issue **[#11](https://github.com/greta-dev/greta.distributions/issues/11)** (the
+authoring vignette) and PR **[#33](https://github.com/greta-dev/greta.distributions/issues/33)** (the API rename plus that vignette).
+
+**Version: 0.4.0 (minor).** Adds and stabilises public API.
+
+### Did we arrive at a good form? No {#sec-gd-form}
+
+The template functions were repaired this July so that they *generate
+code that runs* (@sec-gd-changed). That is not the same as the API
+being right, and four things say it is not:
+
+**It is a string-interpolating code generator.**
+`build_greta_dist_definition()` glues R6 source together as text:
+
+```{r}
+#| eval: false
+top <- glue::glue(
+  '{dist_name}_distribution <- R6::R6Class(
+       classname = "{dist_name}_distribution",
+```
+
+The class-name/`distrib()` contract therefore lives in string
+concatenation, where nothing can check it - which is exactly why
+`main`'s template and PR [#33](https://github.com/greta-dev/greta.distributions/issues/33)'s template got it wrong in **two
+different ways**. Two independent attempts failing differently is a
+statement about the design, not about the authors.
+
+**The signature is too thin for the job.** `dist_arg_list =
+c("meanlog", "sdlog")` carries names and nothing else. A distribution
+also needs parameter constraints (positive? simplex? correlation?),
+support and truncation, discrete versus continuous, dimension rules,
+the TFP distribution to delegate to, and the bijector. None of that is
+expressible, so the generated file is a skeleton whose hard parts are
+all left to the author.
+
+**The generated code walks into [#12](https://github.com/greta-dev/greta.distributions/issues/12).** Emitted code calls greta
+functions bare, and inside a package namespace `beta(1, 1)` silently
+returns numeric `1` (see [#12](https://github.com/greta-dev/greta.distributions/issues/12) above). A generator should emit `greta::`
+prefixes, or [#12](https://github.com/greta-dev/greta.distributions/issues/12) should be fixed first.
+
+**The vignette is the product, not the function.** For a "help people
+author distributions" feature, [#11](https://github.com/greta-dev/greta.distributions/issues/11) *is* the deliverable and the
+functions are scaffolding around it. Shipping the scaffolding first was
+backwards.
+
+### The form that issue [#4](https://github.com/greta-dev/greta.distributions/issues/4) already describes
+
+Golding's sketch in [#4](https://github.com/greta-dev/greta.distributions/issues/4) - `write_greta_distribution(name=, arguments=,
+tf_distrib_name=, truncation=, tf_distrib_args=)` - is a **declarative
+specification**, not a code generator. Describe the distribution as
+data, and have one function construct the node from it. Then there is
+no generated source to get wrong, the spec can be validated, and a
+density can be tested without first writing a file to disk.
+
+The gap between that sketch and the shipped implementation is the real
+content of this milestone.
+
+### This is the same problem as greta [#369](https://github.com/greta-dev/greta/issues/369) {#sec-gd-369}
+
+greta's own [#369](https://github.com/greta-dev/greta/issues/369),
+"helpers to establish new TFP/greta distributions", sits in greta's
+milestone 9. It asks the same question this milestone asks. It is also
+the same *shape* as greta's milestone 8 - replacing stringly-typed
+machinery with declarative descriptions, one level up.
+
+**Designing this toolkit separately from [#369](https://github.com/greta-dev/greta/issues/369) risks building two
+competing answers to one question.** The recommendation is to treat
+them as one piece of design work, and to schedule this milestone
+against [#369](https://github.com/greta-dev/greta/issues/369) rather than ahead of it.
+
+> Claude: this also bears on the backend endgame. A declarative spec
+> that names a TFP distribution is portable to another backend only if
+> the naming is indirected; a spec that composes greta ops is portable
+> for free. Worth settling alongside greta's `compose where cheap,
+> delegate where not` default.
+
+### [Issue #12](https://github.com/greta-dev/greta.distributions/issues/12)
+
+- 2022-06-10
+- How to best reexport greta internals.
+- finding: **this is a real trap and I hit it while writing tests.**
+  `R/internals.R` pulls greta internals into the package namespace, but
+  greta itself is in `Depends`, not `Imports`. R's namespace search
+  goes *namespace -> imports -> base -> global -> search path*, so
+  `base` is reached **before** the attached greta. Inside the package
+  namespace, and inside its tests, `beta(1, 1)` therefore resolves to
+  `base::beta` and returns the numeric `1`, not a greta array:
+
+  ```
+  Error in `model(size, prob, pi)`: `model()` arguments must be <greta_array>s
+  The following objects passed to `model()` are not <greta array>s: "prob" and "pi"
+  ```
+
+  I worked around it with `greta::beta(1, 1)` in
+  `tests/testthat/test_zip_zinb.R:33, :54-55`, but the workaround is
+  the evidence: any distribution author writing code *inside* a package
+  that depends on greta hits the same silent masking.
+- fix: move greta to `Imports` and re-export what authors need
+  explicitly, which is what the issue proposes. That also answers the
+  issue's discomfort about documenting re-exported internals - a small
+  documented surface (`distrib`, `distribution_node`, `check_dims`,
+  `fl`, `as.greta_array`) is defensible where `.internals` is not.
+- priority: high within this milestone; it is the difference between
+  the templates working for the package and working for its users.
+
+### [Issue #4](https://github.com/greta-dev/greta.distributions/issues/4)
+
+- 2022-06-10
+- some notes on interface design.
+- finding: the **design charter for the whole template system** -
+  Golding's sketch of `write_greta_distribution(name=, arguments=,
+  tf_distrib_name=, truncation=, tf_distrib_args=)`. The shipped
+  `greta_distribution_template()` implements a weaker version: it takes
+  a name and an argument list but not the TFP mapping, so the generated
+  `tf_distrib` body is a commented placeholder the author fills in.
+- fix: close the gap between the sketch and the implementation, or
+  record the decision not to.
+- priority: medium. It is the issue that says what "done" means for
+  this package's second half.
+
+> Claude: [#4](https://github.com/greta-dev/greta.distributions/issues/4) is eight years of unrealised design and the templates now
+> half-implement it. **Is the `tf_distrib_name`/`tf_distrib_args`
+> mapping still wanted?** If yes, this milestone is the place. If the
+> answer is "the placeholder approach is fine, authors need to think
+> about the density anyway", then [#4](https://github.com/greta-dev/greta.distributions/issues/4) closes and the milestone shrinks
+> to [#12](https://github.com/greta-dev/greta.distributions/issues/12).
+
+---
+
+## Milestone 5: Sufficient statistics - 0.5.0
+
+**Version: 0.5.0 (minor).** New capability, no API break.
+
+### [Issue #37](https://github.com/greta-dev/greta.distributions/issues/37)
+
+- 2026-02-10
+- Explore using sufficient statistics to speed up models.
+- finding: the newest issue and the only performance one. Points at
+  Jewson et al. (arXiv 2502.04990) and Stan implementations that
+  rewrite a Gaussian regression likelihood in terms of sufficient
+  statistics, turning an O(n) density into O(1) in the data.
+- finding: this is **research, not a distribution.** It also sits
+  awkwardly here: the rewrite is a property of the *model graph*, which
+  is greta's business, not a property of a distribution. It may belong
+  in greta's milestone 8/9 (graph rewriting) rather than in this
+  package.
+- fix: prototype on one model - Bayesian linear regression - and
+  measure before designing anything.
+- priority: low.
+
+> Claude: **I think [#37](https://github.com/greta-dev/greta.distributions/issues/37) is filed in the wrong repository.** Marginalisation
+> and decentring in greta's milestone 9 are the same shape of problem -
+> rewrite the graph, preserve the posterior - and they need the flat
+> node registry from greta's milestone 8. Moving [#37](https://github.com/greta-dev/greta.distributions/issues/37) to greta would put
+> it with its machinery. Your call, but I would not build it here.
+
+---
+
+## What I changed {#sec-gd-changed}
+
+All in the working tree, uncommitted, on branch `add-tf-zip-nb`. The
+package checks `0 errors | 0 warnings | 0 notes` at 0.1.0 after every
+change, and the test suite went from 2 tests to 8, all passing.
+
+| File | Change | Evidence |
+|---|---|---|
+| `R/distribution-template.R:8-9` | Generated R6 class renamed `<name>_distribution` | `distrib()` appends the suffix; without this the constructor lookup fails |
+| `R/distribution-template.R:174-183` | `distrib([name], ...)` -> `distrib("[name]", ...)`, outer string requoted to single quotes | all three call forms tested; only this one works |
+| `R/greta_distribution_template_test.R:25, :28` | `extraDist::` -> `extraDistr::` | the package is `extraDistr`; `extraDist` does not exist |
+| `tests/testthat/test_zip_zinb.R:18-61` | Two regression tests for [#30](https://github.com/greta-dev/greta.distributions/issues/30), replacing PR [#31](https://github.com/greta-dev/greta.distributions/issues/31)'s | 8/8 tests pass; supersedes PR [#31](https://github.com/greta-dev/greta.distributions/issues/31) |
+
+Everything else in the tree is the previous agent's work, left intact.
+
+## The path to a first CRAN release
+
+Narrowing 0.1.0 to the two distributions (@sec-gd-scope) removed the
+three items that used to head this list - the naming decision, the [#33](https://github.com/greta-dev/greta.distributions/issues/33)
+rework, and the [#11](https://github.com/greta-dev/greta.distributions/issues/11) vignette. What remains:
+
+1. **Squash the working-tree repair into PR [#35](https://github.com/greta-dev/greta.distributions/issues/35) and merge it.** Do not
+   merge [#35](https://github.com/greta-dev/greta.distributions/issues/35) unrepaired (@sec-gd-reconcile).
+2. **Close [#31](https://github.com/greta-dev/greta.distributions/issues/31)** as superseded.
+3. **Close [#30](https://github.com/greta-dev/greta.distributions/issues/30), [#32](https://github.com/greta-dev/greta.distributions/issues/32), [#34](https://github.com/greta-dev/greta.distributions/issues/34), [#25](https://github.com/greta-dev/greta.distributions/issues/25), [#26](https://github.com/greta-dev/greta.distributions/issues/26)** - all verified done above.
+4. **Amend [#29](https://github.com/greta-dev/greta.distributions/issues/29)'s checklist**, which still lists [#11](https://github.com/greta-dev/greta.distributions/issues/11) and [#22](https://github.com/greta-dev/greta.distributions/issues/22) as release
+   requirements. Both moved out (@sec-gd-toolkit, @sec-gd-prs).
+5. **Move [#33](https://github.com/greta-dev/greta.distributions/issues/33) to milestone 4** - it renames unexported functions, so it
+   no longer touches the release.
+6. Run the [#29](https://github.com/greta-dev/greta.distributions/issues/29) checklist tail: `urlchecker::url_check()`,
+   `devtools::check(remote = TRUE, manual = TRUE)`,
+   `check_win_devel()`, then submit.
+
+Two notes on the submission itself. `cran-comments.md` was written when
+the authoring functions were still exported, so **its `\dontrun{}`
+justification now covers examples that no longer exist** - it needs
+trimming to match. And the largest remaining risk is unchanged: nothing
+here has been demonstrated on a machine *without* Python, which is what
+CRAN has. `check_win_devel()` and rhub are not optional.
+
+Milestones 2 onward are all post-release. Nothing in them blocks 0.1.0,
+and **none of the four legacy PRs should be rushed into the first
+release** - they would each add a distribution whose density has never
+been compared against a reference, to a package whose entire credibility
+rests on its densities being right.

@@ -1,0 +1,76 @@
+# The plan {#sec-plan}
+
+Thirteen milestones cover every open issue in greta, ordered so bugs and
+low-risk wins come first and the deepest internal work last. They exist as
+[milestones on the issue tracker](https://github.com/greta-dev/greta/milestones);
+this book is their reasoning.
+
+Milestones are work buckets, not releases. A release is cut when a coherent
+batch is ready, so one milestone may span several and the titles carry no
+version.
+
+| # | Milestone | Issues | Chapter |
+|---|---|---|---|
+| 1 | Installation that explains itself when it fails | 8 | @sec-installation |
+| 2 | Sampling correctness bugs | 10 | @sec-sampling-bugs |
+| 3 | greta arrays behave the way R leads you to expect | 19 | @sec-greta-arrays |
+| 4 | Faster and adaptive sampling | 9 | @sec-adaptive-sampling |
+| 5 | MCMC ergonomics and documentation | 14 | @sec-mcmc-ergonomics |
+| 6 | Distributions, and untying the cholesky/LKJ knot | 17 | @sec-distributions |
+| 7 | Make the test suite trustworthy | 13 | @sec-test-suite |
+| 8 | Printing, display, and friendly errors | 22 | @sec-printing |
+| 9 | Session portability, targets, and community | 6 | @sec-session-portability |
+| 10 | GPU and hardware support | 4 | @sec-gpu |
+| 11 | The backend abstraction: op dictionary and node registry | 7 | @sec-backend |
+| 12 | Advanced modelling: marginalisation, decentring, distributions | 8 | @sec-advanced |
+| 13 | Developer tooling and repo housekeeping | 15 | @sec-housekeeping |
+
+: {tbl-colwidths="[5,70,10,10]"}
+
+Milestones 7 and 13 are ongoing work rather than a release theme, which is why
+they carry no version and never will.
+
+Two known breaking changes remain,
+[#692](https://github.com/greta-dev/greta/issues/692) and
+[#648](https://github.com/greta-dev/greta/issues/648). Both land in milestone 8,
+batched so users migrate once.
+
+## Open pull requests {.unnumbered}
+
+Six pull requests are open. Five are live work and carry the milestone
+they serve; one is a close candidate and deliberately carries none, so
+that milestone counts reflect work that will actually happen.
+
+| PR | Milestone | Status |
+|---|---|---|
+| [#779](https://github.com/greta-dev/greta/pull/779) adaptive HMC | 4 | The live sampler work; rebase and refresh |
+| [#506](https://github.com/greta-dev/greta/pull/506) `sd.greta_array` | 3 | Cheapest feature win; implements [#504](https://github.com/greta-dev/greta/issues/504). Rebase - it is `CONFLICTING`/`DIRTY` and bundles unrelated changes |
+| [#764](https://github.com/greta-dev/greta/pull/764) point-mass distribution | 6 | Open question: does this belong in greta or greta.distributions? |
+| [#344](https://github.com/greta-dev/greta/pull/344) marginalise (2020) | 12 | Base is six years stale, but the design is worth keeping - it is the mechanism behind [#157](https://github.com/greta-dev/greta/issues/157) |
+| [#752](https://github.com/greta-dev/greta/pull/752) marginalise merge experiment | 12 | Author's own description: "a bit messy". Kept for what it records about the rebase attempts |
+| [#698](https://github.com/greta-dev/greta/pull/698) cli spinners | - | The one close candidate. Author: "I don't think is correctly implemented", and the installer has since been rewritten |
+
+An earlier triage proposed closing #344 and #752 as well. That was
+overruled: both are interesting in their own right for the
+marginalisation work, so they stay open under milestone 12.
+
+**Branches.** `fix-diag-i583` is salvageable (one commit,
+[#583](https://github.com/greta-dev/greta/issues/583) still open);
+`nuts`, `tfp_mixture` and `mvn_precision` are TF1-era delete candidates,
+but capture their ideas as issues first; `use-only-2-cores-i796` is
+superseded - verify its sitrep-test commits landed elsewhere before
+deleting it. The marginalise work also has `feature/marginalise` plus
+rebased variants (`feature-marginalise-rebased`, `-squash`, `-update`).
+
+## Outside the milestones {.unnumbered}
+
+One thing needs doing and belongs to no milestone: getting the three
+extension packages - greta.dynamics, greta.gam and greta.gp - back onto
+CRAN now that 0.6.0 is accepted. Each is a separate package with its own
+repository and issue tracker, so the work is tracked there rather than
+here; it is not core greta work and cannot carry a greta version.
+
+Worth knowing before relying on a reverse-dependency check to tell you
+whether they still work: `revdepcheck` silently skips greta.gp and
+greta.dynamics, so a clean `revdep/problems.md` is not evidence about
+either of them.

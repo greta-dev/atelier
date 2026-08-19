@@ -1,0 +1,307 @@
+# greta arrays behave the way R leads you to expect {#sec-greta-arrays}
+
+- The base-R fidelity release. `diag()`, `apply()`, `tapply()`,
+  `round()`, `cbind()`, `sd()` and friends should do what an R user
+  expects when handed a greta array. Grouping labels: `bug`,
+  `low hanging fruit`, plus the `array-ops` cluster. Front-loading bugs
+  is a deliberate response to the maintainer's steer that *bugs should
+  be solved as early as possible this year*.
+- These issues barely interact: each is a localised patch to one
+  function, shippable independently, so any subset landing is a good
+  release. Together they tell one coherent user-facing story.
+
+**Ship [#800](https://github.com/greta-dev/greta/issues/800) first.** It is four tokens, and until it lands greta
+silently returns wrong numbers to any base R user who merely has greta
+attached. Everything else in this milestone is an error or a missing
+feature; [#800](https://github.com/greta-dev/greta/issues/800) is a wrong answer with no warning.
+
+The coordination pairs, none of them hard blockers except the first:
+
+- **[#216](https://github.com/greta-dev/greta/issues/216) + [#583](https://github.com/greta-dev/greta/issues/583)** edit the *same function* `diag.greta_array()`
+  (construction vs rectangular extraction) — land them in one PR,
+  **construction branch first**. This one *is* a hard ordering
+  constraint: the tie-break is resolved under [#216](https://github.com/greta-dev/greta/issues/216) below.
+- **[#528](https://github.com/greta-dev/greta/issues/528) + [#728](https://github.com/greta-dev/greta/issues/728)** are both reached through `mixture()`, but the fix
+  sites are unrelated — `check_weights_dim()` for [#528](https://github.com/greta-dev/greta/issues/528), and
+  `R/dag_class.R` (not `R/mixture.R`) for [#728](https://github.com/greta-dev/greta/issues/728). Doing [#528](https://github.com/greta-dev/greta/issues/528) first gives
+  [#728](https://github.com/greta-dev/greta/issues/728) a clean single-column mixture to test with.
+- **[#514](https://github.com/greta-dev/greta/issues/514) → [#783](https://github.com/greta-dev/greta/issues/783)** share a permute/reshape idiom ([#783](https://github.com/greta-dev/greta/issues/783) "extends the
+  apply work in [#514](https://github.com/greta-dev/greta/issues/514)"), but touch different functions. [#504](https://github.com/greta-dev/greta/issues/504)'s `sd`
+  should join `apply()`'s `FUN` menu at the same time.
+- **[#512](https://github.com/greta-dev/greta/issues/512) + [#552](https://github.com/greta-dev/greta/issues/552)** are the two replacement-semantics issues, and [#512](https://github.com/greta-dev/greta/issues/512)'s
+  residual is a *printing* concern that belongs in milestone 8 rather
+  than here — see its block below.
+- Fully orthogonal: **[#366](https://github.com/greta-dev/greta/issues/366), [#504](https://github.com/greta-dev/greta/issues/504), [#532](https://github.com/greta-dev/greta/issues/532), [#800](https://github.com/greta-dev/greta/issues/800)**.
+
+**Arrived from elsewhere.** [#611](https://github.com/greta-dev/greta/issues/611)
+(`greta_conflicts()`) and [#798](https://github.com/greta-dev/greta/issues/798)
+(`value()` over a list of greta arrays) were previously written up under
+session portability. Neither is about surviving a session restart; both
+are about greta arrays behaving as an R user expects, so they live here.
+Going the other way, [#615](https://github.com/greta-dev/greta/issues/615) and [#784](https://github.com/greta-dev/greta/issues/784) are in the printing and errors
+milestone, and [#181](https://github.com/greta-dev/greta/issues/181) - reusing one model across datasets - moved to
+milestone 4, since it depends on the log-prob data interface rather than
+on array semantics.
+
+### [Issue #196](https://github.com/greta-dev/greta/issues/196)
+
+- 2018-07-04
+- documentation
+- How to replace values in a variable greta array.
+- finding: the code behaviour is [#512](https://github.com/greta-dev/greta/issues/512)/#552; this is the doc side.
+- fix: document replacement patterns once [#512](https://github.com/greta-dev/greta/issues/512)/#552 land.
+- priority: low.
+
+### [Issue #210](https://github.com/greta-dev/greta/issues/210)
+
+- 2018-08-13
+- (none)
+- A for-loop-type constructor; loops are "very slow to define and execute".
+- finding: the R6 construction overhead is the node-registry trigger; plain records remove it.
+- fix: the registry removes the per-node overhead; a loop constructor then builds many nodes cheaply.
+- priority: medium (performance).
+
+### [Issue #216](https://github.com/greta-dev/greta/issues/216)
+
+- 2018-08-16
+- documentation
+- `diag()` on a greta array behaves unexpectedly.
+- problem: closely related to [#583](https://github.com/greta-dev/greta/issues/583) (the rectangular-matrix diag case).
+- finding: same *function* as [#583](https://github.com/greta-dev/greta/issues/583) — `diag.greta_array()` in `R/extract_replace_combine.R:689`; fix them together.
+- fix: add the missing *construction* path so `diag(x, nrow, ncol)` builds a diagonal `greta_array` via `tf$linalg$diag`, while calls on a genuinely rectangular array still extract. **Land before [#583](https://github.com/greta-dev/greta/issues/583)** — the tie-break rule and its ordering constraint are in @sec-plan.
+- verified: `diag(as_data(1), 100, 100)` still returns `1x1`, exactly as reported in 2018 — `nrow`/`ncol` are accepted and silently ignored. Only exactly-square input works today, and it always extracts. `tf$linalg$diag` takes `num_rows`/`num_cols`, so rectangular construction needs no new `tf_*` helper; the fix document is right about that.
+- warning: **do not** use the suggestion from the issue thread, which builds the result with `base::diag()` on `get_node(x)$value()`. That is data-only and breaks for variables, whose values are unknowns. Route through `tf$linalg$diag` as a proper op.
+- proposed fix: [fixes/issue-216.md](fixes/issue-216.md)
+- priority: medium (quick win, batches with [#583](https://github.com/greta-dev/greta/issues/583)).
+
+::: {.callout-note}
+#### Resolved: the [#216](https://github.com/greta-dev/greta/issues/216) / [#583](https://github.com/greta-dev/greta/issues/583) `diag()` tie-break
+
+This was previously recorded as blocking both issues. It is now
+settled.
+
+**Why a rule was needed.** greta cannot distinguish `as_data(1:3)` from
+`as_data(matrix(1:3, 3, 1))` - both are 3x1 with identical `dim`, so
+there is nothing to dispatch on. Base R's discriminator is unusable
+here: base tests `is.matrix(x)`, i.e. the presence of a `dim`
+attribute, and **every greta array has a `dim`**. A literal base-fidelity
+port would therefore always extract, always reject `nrow`/`ncol`, and
+leave [#216](https://github.com/greta-dev/greta/issues/216)'s construction feature unreachable by construction. The
+tie-break has to be a deliberate, documented deviation.
+
+**The agreed rule**, inside `diag.greta_array(x, nrow, ncol)`:
+
+1. **`nrow` or `ncol` supplied -> construct**, output `c(nrow, ncol)`.
+   Deviates from base (which errors for a matrix `x`); it is the only
+   unambiguous way to ask greta for construction, and it is [#216](https://github.com/greta-dev/greta/issues/216)'s
+   reprex.
+2. **No `nrow`/`ncol`, both dims > 1 -> extract**, output
+   `c(min(n, m), 1)`. Matches base exactly; this is [#583](https://github.com/greta-dev/greta/issues/583).
+3. **No `nrow`/`ncol`, shape `n x 1` or `1 x n` -> construct** an
+   `n x n` diagonal. **A deliberate deviation from base**, which would
+   extract a single element here. greta's canonical vector *is* `n x 1`,
+   `diag(v)` for a covariance matrix is the commonest `diag()` idiom in
+   statistical modelling, and the extraction reading returns one element -
+   an operation nobody deliberately writes. A user who wants it writes
+   `x[1, 1]`; there is no comparably simple workaround the other way.
+4. **`1 x 1` -> construct.** Both readings agree numerically; specifying
+   it removes an edge case.
+5. **Rank > 2 -> error** (existing behaviour, keep).
+
+**Ordering constraint: [#583](https://github.com/greta-dev/greta/issues/583) cannot land before [#216](https://github.com/greta-dev/greta/issues/216).**
+`fixes/issue-583.md` proposes `c(min(dim[1], dim[2]), 1)`
+*unconditionally*, which on an `n x 1` input yields `1x1` and directly
+contradicts rule 3. The construction branch must therefore be **tested
+first**, with [#583](https://github.com/greta-dev/greta/issues/583)'s `min()` extraction applying only when both dims
+exceed 1. Land them as one PR, construction branch first.
+
+**Never port base's `diag(n)` identity form.** `base::diag(3)` returns a
+3x3 identity - the output *shape depends on the input value*. greta
+arrays routinely have unknown values, so this form is unimplementable in
+general and would be a shape-inference trap. `diag.greta_array()` must
+never treat a scalar as a size, and the docs should say so. Users
+wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
+(rule 1).
+:::
+
+### [Issue #256](https://github.com/greta-dev/greta/issues/256)
+
+- 2018-11-21
+- documentation
+- How to use conditionals in greta.
+- finding: greta has no `if` over random variables; the answer is `ifelse`/indexing patterns.
+- fix: an article on conditional logic in greta.
+- priority: low.
+
+### [Issue #263](https://github.com/greta-dev/greta/issues/263)
+
+- 2019-02-03
+- documentation
+- R-numeric versions of greta operation functions.
+- finding: users want to test op maths in plain R; overlaps the pure-R backend idea ([#586](https://github.com/greta-dev/greta/issues/586)).
+- fix: document/expose R equivalents where they exist.
+- priority: low.
+
+### [Issue #366](https://github.com/greta-dev/greta/issues/366)
+
+- 2018-04-08
+- bug
+- `get_unique_name()` may return colliding names.
+- problem: name collisions surface as tf-name clashes deeper in the dag.
+- finding: `rhex()` (`R/utils.R:252`) draws only 4 random bytes (32-bit space); `create_unique_name()` at `R/node_class.R:262` interpolates it. The flat registry (milestone 8) would make ids structural, but a scoped counter fixes it now.
+- fix: make identity structural — combine a session-lifetime monotonic counter (in `greta_stash`) with the random suffix, guaranteeing uniqueness by construction.
+- verified: 132 collisions in 10^6 draws, against a birthday-bound expectation of ~116. Squarely as predicted.
+- **caution on the proposed acceptance test.** It draws 10,000 names and checks distinctness; at 10^4 draws in a 32-bit space the expected collision count is ~0.012, so **the test would pass >98% of the time against the unfixed code**. It does not discriminate. Assert the *structure* of the new name instead — that the counter component increments — which is also far faster.
+- proposed fix: [fixes/issue-366.md](fixes/issue-366.md)
+- priority: medium.
+
+### [Issue #504](https://github.com/greta-dev/greta/issues/504)
+
+- 2022-03-17
+- enhancement
+- `sd()` on a greta array returns a base value, not a greta array.
+- problem: breaks composition in downstream greta expressions.
+- finding: PR [#506](https://github.com/greta-dev/greta/pull/506) already implements it (adds `sd` generic + `sd.greta_array` + `tf_sd`), but it is now `CONFLICTING`/`DIRTY` and bundles unrelated M1/version changes.
+- **correction: `var()` is broken too.** The fix document inherits the reporter's claim that `var()` and `scale()` return greta arrays. They do not — `var(x)` returns a **base matrix containing `NA`**, the same class of failure as `sd()`, for the same reason (`stats::var` is not generic either). So there is no working interim fallback to point users at, and the fix must promote **both** `sd` and `var` or the issue will immediately be re-filed. The "very low effort" rating holds for `sd` alone; the scope is bigger than the fix document states.
+- fix: cherry-pick just the `sd` parts of [#506](https://github.com/greta-dev/greta/issues/506) onto `main` (dropping the M1 noise), fix the `"min", "sd,` doc typo, add a numeric test against `stats::sd()`, and extend the same treatment to `var`. Also register `sd` in the `apply`/`tapply` `FUN` menus — `apply(z, 2, "sd")` currently errors with a menu that omits it, so this is needed, not cosmetic.
+- proposed fix: [fixes/issue-504.md](fixes/issue-504.md)
+- priority: high (near-free).
+
+### [Issue #512](https://github.com/greta-dev/greta/issues/512)
+
+- 2022-03-29
+- Up Next
+- cbind / subsetting a greta array with fixed zeros misbehaves.
+- **superseded by verification — a candidate to close on the evidence below rather than to fix.** This does not reproduce as a computation bug. `calculate()` on `cbind(normal(0,1,dim=c(5,2)), zeros(5,2))` returns the right values in the right columns; there is no `tf_cbind` ordering bug and no value-merge corruption. The forum thread the issue links to records the maintainers' own conclusion that it is print-display only.
+- **the fix document is aimed at the wrong layer.** `fixes/issue-512.md` directs effort at `tf_cbind` column ordering and `calculate()` output, all of which is verified correct, and its acceptance test **passes unmodified against 0.6.0** — it would lock in behaviour that was never broken while leaving the actual complaint untouched.
+- residual, if wanted: `[<-` preserves known values in the printed preview (`R/extract_replace_combine.R:225-251`) while `cbind`/`c` render them as `?`. That is a **printing** change and belongs in milestone 7. Note the relationship to [#552](https://github.com/greta-dev/greta/issues/552) is the *inverse* of what the fix document assumed: [#552](https://github.com/greta-dev/greta/issues/552)'s eager value cache is the behaviour to copy into `cbind`, not a defect to remove.
+- priority: close as filed.
+- defect in the proposed fix: it targets `tf_cbind` column ordering and value-merge corruption, all of which is verified correct. Its acceptance test passes unmodified against 0.6.0, so following it would lock in behaviour that was never broken.
+
+### [Issue #514](https://github.com/greta-dev/greta/issues/514)
+
+- 2022-04-19
+- (none)
+- `apply()` does not work on a greta array.
+- problem: greta lacks an `apply` shim over its array ops.
+- finding: `apply.greta_array()` was in fact added since (commit `89c11f24`) and lives at `R/functions.R:963`, but it does `match.arg(FUN)` on a *string* menu, so the issue's `apply(z, 1, mean)` (a bare function) still errors.
+- **half the issue is stale.** The live half is confirmed: `apply(z, 1, mean)` with a bare function still errors. But the 2022-12 follow-up comment reporting `apply(x, 2, "cumsum")` returning a matrix of `NA`s **no longer reproduces** — it now returns values identical to base R. Those `NA`s were the *print preview* of a variable-derived array, which now correctly prints `?`. Strike that half from the issue when it is worked, and drop the corresponding half of the fix document.
+- fix: coerce common base reducers passed as functions (`mean`, `sum`, …) to their string names before `match.arg()`, and error helpfully for unsupported `FUN`, so both `apply(z, 1, mean)` and `apply(z, 1, "mean")` work. Add `sd` to the `FUN` menu at the same time ([#504](https://github.com/greta-dev/greta/issues/504)).
+- proposed fix: [fixes/issue-514.md](fixes/issue-514.md)
+- priority: medium.
+
+### [Issue #520](https://github.com/greta-dev/greta/issues/520)
+
+- 2022-05-08
+- documentation
+- `calculate()` doesn't work on a data array (as expected?).
+- finding: likely a documentation/expectation issue, not a bug.
+- fix: clarify calculate's semantics on data; add an example.
+- priority: low.
+
+### [Issue #528](https://github.com/greta-dev/greta/issues/528)
+
+- 2022-05-31
+- (none)
+- `mixture()` fails with single-column arrays.
+- problem: a dimension assumption in mixture assembly.
+- finding: `check_weights_dim()` (`R/checkers.R:1375`) strips a trailing `1` from the component `dim` but not from the weights' dims, so `c(2,5,1)` weights are wrongly rejected while `c(1,5)` slips through. Confirmed by reading the check.
+- fix: strip the trailing `1` from `w_dim` symmetrically and add a length-equality guard before comparing (also closes an R recycling foot-gun).
+- proposed fix: [fixes/issue-528.md](fixes/issue-528.md)
+- priority: medium.
+
+### [Issue #532](https://github.com/greta-dev/greta/issues/532)
+
+- 2022-06-13
+- (none)
+- `greta::round()` warns instead of using TensorFlow's digits argument.
+- problem: no support for `digits` in the rounding op.
+- finding: `round.greta_array()` (`R/functions.R:213`) aborts whenever `digits != 0`; TF has a scaled-round idiom.
+- fix: add a `tf_round(x, digits)` backend (scale → round → unscale) and pass `digits` through the op; drop the abort. `digits = 0` still reduces to `tf$round`.
+- proposed fix: [fixes/issue-532.md](fixes/issue-532.md)
+- priority: low.
+
+### [Issue #552](https://github.com/greta-dev/greta/issues/552)
+
+- 2022-08-25
+- (none)
+- In value replacement, the replacement value is overwritten early.
+- **does not reproduce — a candidate to close on the evidence below rather than to fix.** Checked on both the user-facing path and the test-suite path the issue itself said was required to trigger it. The source `data_node` holds the **original, unreplaced** values; in the issue's 2022 dump it held replaced ones. That is the exact symptom, and it is gone.
+- keep the fix document's two acceptance tests as regression guards — they pass against 0.6.0 as written, so they are cheap.
+- **do not implement `fixes/issue-552.md` step 3**, which proposes dropping the eager `value = new_value` cache. That cache is precisely what makes fixed values display correctly through `[<-`; removing it would turn [#512](https://github.com/greta-dev/greta/issues/512)'s display asymmetry from a `cbind`-only bug into a general one.
+- priority: close.
+- defect in the proposed fix: step 3 proposes dropping the eager `value = new_value` cache. **Do not do this** - that cache is exactly what makes fixed values display correctly through `[<-`, and removing it would turn [#512](https://github.com/greta-dev/greta/issues/512)'s display asymmetry from a `cbind`-only bug into a general one.
+
+### [Issue #583](https://github.com/greta-dev/greta/issues/583)
+
+- 2023-02-02
+- (none)
+- Retrieving the diagonal from a rectangular matrix errors.
+- problem: `diag()` assumes a square matrix.
+- finding: the guard at `R/extract_replace_combine.R:700` is both over-strict *and* mis-named — `is_square <- dim[1] != dim[2]` is really `is_not_square`, and it blocks the rectangular extraction that `tf$linalg$diag_part` already supports. The `fix-diag-i583` branch has a salvageable one-commit start.
+- fix: delete the square restriction and set the output length to `min(dim[1], dim[2])` — but **only when both dims exceed 1**. Applied unconditionally, as the fix document proposes, an `n x 1` input yields `1x1`, which contradicts the construction rule for vector-shaped arrays. **Cannot land before [#216](https://github.com/greta-dev/greta/issues/216)** (see @sec-plan).
+- verified: `tf$linalg$diag_part` on a 3x4 already returns `1 5 9`, identical to `base::diag()`. **[#583](https://github.com/greta-dev/greta/issues/583) is purely the removal of an over-strict R-side guard** — the TensorFlow side has always been correct.
+- proposed fix: [fixes/issue-583.md](fixes/issue-583.md)
+- priority: medium.
+
+### [Issue #611](https://github.com/greta-dev/greta/issues/611)
+
+- 2024-02-08
+- Up Next, impact-1, low hanging fruit
+- A `greta_conflicts()` function (à la `tidyverse_conflicts()`).
+- problem: greta masks base functions silently.
+- finding: self-contained; mirrors an existing tidyverse pattern.
+- verified: greta creates **21 real masking conflicts** on attach (18 from base, 3 from stats). Premise fully intact. It also exports a function named **`f`**, which is a land-mine both for users and for a conflicts report.
+- **the proposed implementation has a verified bug.** `getNamespaceExports("greta")` returns 27 names, 5 of them spurious S4 method-table internals (`.__T__[[<-:base` and friends). Use `ls("package:greta")` instead, or filter `^\.__[TC]__`. The `find()`-based detection is otherwise sound — `find("%*%")` handles infix operators correctly. The acceptance test's assertions (`"diag" %in% nms`, `"poisson" %in% nms`) both hold against the real conflict list.
+- fix: implement `greta_conflicts()` (new `R/greta_conflicts.R`) comparing `ls("package:greta")` against the search path and reporting masks with cli styling; optionally call it from `.onAttach` (`R/zzz.R`) behind an option.
+- proposed fix: see [fixes/issue-611.md](fixes/issue-611.md).
+- priority: medium (good first issue).
+- defect in the proposed fix: `getNamespaceExports()` is the wrong name source. It returns 27 names, 5 of them spurious S4 method-table internals (`.__T__[[<-:base` and friends). Use `ls("package:greta")` instead, or filter `^\.__[TC]__`. The `find()`-based detection is otherwise sound - it handles infix operators correctly.
+
+### [Issue #728](https://github.com/greta-dev/greta/issues/728)
+
+- 2024-10-15
+- (none)
+- `calculate()` errors when using a mixture distribution.
+- problem: mixture nodes not handled in the calculate path; overlaps [#528](https://github.com/greta-dev/greta/issues/528).
+- **finding, corrected by verification: the fix document diagnoses the wrong file.** `R/mixture.R:235-277` is never reached — the DAG fails to define before any sampling happens. The traceback lands in `how_to_define_hybrid()` at `R/dag_class.R:163`. A mixture distribution node has a `NULL` target, `node_type(NULL)` returns `character(0)`, and the line evaluates `if (character(0) == "data")` → "argument is of length zero". The `is.null(target)` branch above *sets* `node_mode` but does not skip the checks below it.
+- this also refutes the "scalar/single-element mixture" framing: a `dim = 3` mixture fails identically, and so does asking for a **plain `normal` parameter** in a mixture-containing model. It fires whenever the hybrid define path (`values=` **and** `nsim=` together) walks a targetless distribution node — which is why `values=` alone and `nsim=` alone both work.
+- fix: convert the four `if` blocks at `R/dag_class.R:158-180` into an `if`/`else if` chain, or return early from the `is.null(target)` branch. **No change to `R/mixture.R` is needed.** Keep the fix document's acceptance test, and add a case asserting a non-mixture target in a mixture-containing model also works.
+- adjacent finding, worth its own issue: a control model with **no mixture at all** but a `uniform` variable also fails under `values=` + `nsim=`, with a different error (`Cannot reshape a tensor with 15 elements to shape [5,1,1]`). That is a separate shape bug in the hybrid `calculate()` path involving sigmoid-bijector variables, covered by no issue in this milestone.
+- proposed fix: [fixes/issue-728.md](fixes/issue-728.md) — **rewrite against `R/dag_class.R:154-180` before implementing.**
+- priority: medium.
+- defect in the proposed fix: it targets code that never executes. The fix proposes guarding `tf$squeeze`/`tf$tile` in the mixture `sample()` closure at `R/mixture.R:235-277`, but the DAG fails to define before any sampling happens. The real failure is `how_to_define_hybrid()` at `R/dag_class.R:163`: a mixture distribution node has a `NULL` target, `node_type(NULL)` returns `character(0)`, and the line evaluates `if (character(0) == "data")` - "argument is of length zero". The `is.null(target)` branch above it *sets* `node_mode` but does not skip the checks below. **No change to `R/mixture.R` is needed**; convert the `if` blocks at `R/dag_class.R:158-180` into an `if`/`else if` chain.
+
+### [Issue #783](https://github.com/greta-dev/greta/issues/783)
+
+- 2025-03-25
+- bug
+- `tapply` cannot produce a 2D table from greta arrays.
+- problem: `tapply` shim only covers the 1D case.
+- finding: `tapply.greta_array()` (`R/functions.R:1069`) calls `sort(unique(index))` directly on `INDEX`, so a `list(row, col)` errors with `'x' must be atomic`. Extends the `apply` reshape work in [#514](https://github.com/greta-dev/greta/issues/514).
+- fix: add a list-`INDEX` branch that maps the index cross-product to a single segment id (reusing `tf_tapply` unchanged) and reshapes the flat result to the n-D table via `dim(out) <- dims`.
+- proposed fix: [fixes/issue-783.md](fixes/issue-783.md)
+- priority: medium.
+
+### [Issue #798](https://github.com/greta-dev/greta/issues/798)
+
+- 2026-01-29
+- (none)
+- `future::value(fs)` is better than `lapply(fs, value)` for collecting parallel results.
+- problem: current collection is less idiomatic and slightly slower.
+- finding: exactly one call site, `samplers <- lapply(samplers, future::value)` at `R/inference.R:389`, in the parallel result-gathering path.
+- fix: replace with `samplers <- future::value(samplers)` (list method), gaining early-stop on error/interrupt. Acceptance: run a parallel `mcmc()` (`future::plan(multisession)`) and confirm the chains still combine into a `greta_mcmc_list` — extend the existing parallel test in `tests/testthat/test_inference.R`. Independent, ~1-line change, trivial risk.
+- priority: low.
+
+### [Issue #800](https://github.com/greta-dev/greta/issues/800)
+
+- 2026-02-24
+- (none)
+- greta's `backsolve`/`forwardsolve` methods mangle arguments for plain (non-greta) arrays.
+- problem: the S3 methods intercept base calls they should pass through.
+- finding: not a missing guard — the `.default` methods hard-code base's default argument *values* instead of forwarding them. `backsolve.default` (`R/functions.R:864`) calls `base::backsolve(r, x, k = ncol(r), upper.tri = TRUE, transpose = FALSE)`, ignoring the caller's `k`/`upper.tri`/`transpose`; `forwardsolve.default` (`R/functions.R:916`) has the same bug.
+- fix: forward the actual arguments (`k = k, upper.tri = upper.tri, transpose = transpose`) in both `.default` methods. Two edited tokens per method.
+- proposed fix: [fixes/issue-800.md](fixes/issue-800.md)
+- priority: high (silently wrong results for base users).
+
+
