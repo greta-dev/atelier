@@ -233,7 +233,7 @@ ggplot2::ggsave(
 :::
 
 
-### [Issue #181](https://github.com/greta-dev/greta/issues/181)
+## [Issue #181](https://github.com/greta-dev/greta/issues/181)
 
 - 2018-06-01
 - documentation
@@ -242,7 +242,7 @@ ggplot2::ggsave(
 - fix: document reuse once [#739](https://github.com/greta-dev/greta/issues/739) lands.
 - priority: low (follows [#739](https://github.com/greta-dev/greta/issues/739)).
 
-### [Issue #314](https://github.com/greta-dev/greta/issues/314)
+## [Issue #314](https://github.com/greta-dev/greta/issues/314)
 
 - 2019-08-20
 - (none)
@@ -251,7 +251,7 @@ ggplot2::ggsave(
 - fix: expose TFP NUTS through the sampler interface; delete the old branch.
 - priority: medium.
 
-### [Issue #358](https://github.com/greta-dev/greta/issues/358)
+## [Issue #358](https://github.com/greta-dev/greta/issues/358)
 
 - 2020-12-15
 - (none)
@@ -260,16 +260,20 @@ ggplot2::ggsave(
 - fix: stream draws to disk from the fused path.
 - priority: medium.
 
-### [Issue #547](https://github.com/greta-dev/greta/issues/547)
+## [Issue #547](https://github.com/greta-dev/greta/issues/547)
 
 - 2022-08-09
 - TF2, impact-1
 - Do more in TensorFlow instead of stepping back to R each burst.
-- finding, code-verified: greta steps R↔TF every few warmup iterations; the fused path already exists (`R/sampler_class.R:74,508`).
-- fix: build TFP's self-adapting kernel; run longer bursts - a swap inside the fused function.
+- finding, code-verified: greta steps R↔TF every few warmup iterations; the fused path already exists (`R/sampler_class.R:74,509`).
+- finding, measured: the fused path traces **once** per sampler - `tf_evaluate_sample_batch` is a real `tf.function` and `experimental_get_tracing_count()` returns 1 after 200 iterations, after 1000, and with 4 chains. Being traced is therefore *not* what is costing anything; the round-trips are. Measured bursts for one chain, quiet: warmup 500 + 500 samples → 168; warmup 500 + 50 samples → 168; warmup 50 + 500 samples → 18. The count tracks **warmup only** - the whole sampling phase is a single burst - so it is roughly one return to R every 3 warmup iterations, matching the issue's "every 4 iterations". `one_by_one = TRUE` gives one burst per iteration.
+- finding: what actually drags R back in per burst is tuning (`update_welford()`, `tune()`), redrawing `sampler_parameter_values()`, and progress reporting - not the sampling itself.
+- finding: progress reporting for parallel chains **already works by watching files**. `create_log_file()` (`R/utils.R:107`) hands each sampler three tempfiles; the sampler `writeLines()` percentage/progress into them (`R/inference_class.R:77-82`, `record()` at `R/utils.R:130`) and the parent session polls them back with `readLines()`/`read.table()` (`R/callbacks.R:4-20`).
+- direction (Nick, 2026-08-20): explore **mirai** and **mori** for that file-watching layer, so progress can be observed without the sampler returning to R to report it. Caveats to check first: **mori is shared memory, not a file watcher** - "Shared Memory for R Objects", Charlie Gao, v0.2.2 (July 2026), POSIX shm/Win32 file mapping via ALTREP - so it would *replace* the tempfiles rather than watch them; and it needs **R >= 4.3**, above greta's current `R (>= 4.2.0)`, so it cannot be a hard dependency without a bump. See the concurrency notes in the backend chapter.
+- fix: build TFP's self-adapting kernel; run longer bursts - a swap inside the fused function. Decoupling progress reporting is the complementary half: longer bursts are only usable if the user can still see progress.
 - priority: medium (speed; 2027).
 
-### [Issue #568](https://github.com/greta-dev/greta/issues/568)
+## [Issue #568](https://github.com/greta-dev/greta/issues/568)
 
 - 2022-11-04
 - TF2, impact-1
@@ -278,7 +282,7 @@ ggplot2::ggsave(
 - fix: wrap the current TFP optimisers; refresh `R/optimisers.R`.
 - priority: medium.
 
-### [Issue #569](https://github.com/greta-dev/greta/issues/569)
+## [Issue #569](https://github.com/greta-dev/greta/issues/569)
 
 - 2022-11-04
 - Up Next, TF2
@@ -287,7 +291,7 @@ ggplot2::ggsave(
 - fix: surface convergence/iterations on the optimiser result.
 - priority: medium.
 
-### [Issue #739](https://github.com/greta-dev/greta/issues/739)
+## [Issue #739](https://github.com/greta-dev/greta/issues/739)
 
 - 2024-11-01
 - (none)
@@ -299,7 +303,7 @@ ggplot2::ggsave(
 - proposed fix: see [fixes/issue-739.md](fixes/issue-739.md).
 - priority: medium (enabler).
 
-### [Issue #765](https://github.com/greta-dev/greta/issues/765)
+## [Issue #765](https://github.com/greta-dev/greta/issues/765)
 
 - 2025-02-12
 - (none)
@@ -308,7 +312,7 @@ ggplot2::ggsave(
 - fix: rebase [#779](https://github.com/greta-dev/greta/issues/779), make Geweke pass, land against the fused path.
 - priority: high (headline).
 
-### [Issue #790](https://github.com/greta-dev/greta/issues/790)
+## [Issue #790](https://github.com/greta-dev/greta/issues/790)
 
 - 2025-05-13
 - (none)
