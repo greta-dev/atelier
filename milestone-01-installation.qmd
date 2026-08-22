@@ -41,7 +41,7 @@ delete / keep-and-unmark / file-as-issue, and close [#745](https://github.com/gr
 sweep is done — not before.
 
 
-### [Issue #546](https://github.com/greta-dev/greta/issues/546)
+## [Issue #546](https://github.com/greta-dev/greta/issues/546)
 
 - 2022-08-09
 - Up Next, TF2, impact-1
@@ -51,7 +51,7 @@ sweep is done — not before.
 - fix: stabilise input signatures on the compiled functions (`R/dag_class.R:50`, `R/sampler_class.R:74`); if unreproducible, diagnose and document.
 - priority: high (explicit maintainer steer).
 
-### [Issue #663](https://github.com/greta-dev/greta/issues/663)
+## [Issue #663](https://github.com/greta-dev/greta/issues/663)
 
 - 2024-08-05
 - installation, Up Next
@@ -60,7 +60,7 @@ sweep is done — not before.
 - fix: a log-grep helper surfaced by `greta_sitrep()`.
 - priority: low.
 
-### [Issue #670](https://github.com/greta-dev/greta/issues/670)
+## [Issue #670](https://github.com/greta-dev/greta/issues/670)
 
 - 2024-08-05
 - (none)
@@ -69,7 +69,7 @@ sweep is done — not before.
 - fix: set explicit widths; overlaps [#713](https://github.com/greta-dev/greta/issues/713).
 - priority: low.
 
-### [Issue #684](https://github.com/greta-dev/greta/issues/684)
+## [Issue #684](https://github.com/greta-dev/greta/issues/684)
 
 - 2024-08-08
 - installation, Up Next
@@ -78,7 +78,7 @@ sweep is done — not before.
 - fix: detect the conditions; suggest the reinstall.
 - priority: low.
 
-### [Issue #685](https://github.com/greta-dev/greta/issues/685)
+## [Issue #685](https://github.com/greta-dev/greta/issues/685)
 
 - 2024-08-08
 - installation, Up Next
@@ -87,7 +87,7 @@ sweep is done — not before.
 - fix: honour an envvar that bypasses the version gate with a warning.
 - priority: low-medium.
 
-### [Issue #713](https://github.com/greta-dev/greta/issues/713)
+## [Issue #713](https://github.com/greta-dev/greta/issues/713)
 
 - 2024-08-21
 - (none)
@@ -96,7 +96,7 @@ sweep is done — not before.
 - fix: trim the stray whitespace in log output.
 - priority: low.
 
-### [Issue #719](https://github.com/greta-dev/greta/issues/719)
+## [Issue #719](https://github.com/greta-dev/greta/issues/719)
 
 - 2024-08-23
 - installation
@@ -105,7 +105,7 @@ sweep is done — not before.
 - fix: detect the error string; suggest the remedy.
 - priority: low.
 
-### [Issue #745](https://github.com/greta-dev/greta/issues/745)
+## [Issue #745](https://github.com/greta-dev/greta/issues/745)
 
 - 2024-11-07
 - (none)

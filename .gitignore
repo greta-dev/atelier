@@ -13,3 +13,7 @@ milestone-assignments.pdf
 .RData
 .httr-oauth
 .quarto
+
+# quarto sometimes leaves per-chapter renders at the root instead of _book/
+/*.html
+/site_libs/

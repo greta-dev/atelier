@@ -84,7 +84,7 @@ milestone structure entirely, on the grounds that it is not package
 code and so could not carry a version. Milestones no longer imply
 versions, so it joins the community items it belongs with.
 
-### [Issue #509](https://github.com/greta-dev/greta/issues/509)
+## [Issue #509](https://github.com/greta-dev/greta/issues/509)
 
 - 2022-03-21
 - Up Next
@@ -97,7 +97,7 @@ versions, so it joins the community items it belongs with.
 - proposed fix: see [fixes/issue-509.md](fixes/issue-509.md).
 - priority: high (blocks parallel use).
 
-### [Issue #557](https://github.com/greta-dev/greta/issues/557)
+## [Issue #557](https://github.com/greta-dev/greta/issues/557)
 
 - 2022-10-03
 - (none)
@@ -144,7 +144,7 @@ vetiver-style workflow ever appears, it is a ~10-line adapter that can
 be added then, against a real use case.
 :::
 
-### [Issue #595](https://github.com/greta-dev/greta/issues/595)
+## [Issue #595](https://github.com/greta-dev/greta/issues/595)
 
 - 2023-11-15
 - Up Next, impact-1
@@ -193,7 +193,7 @@ Two implementation caveats, both load-bearing:
    PR, guarded by the parallel test.
 :::
 
-### [Issue #599](https://github.com/greta-dev/greta/issues/599)
+## [Issue #599](https://github.com/greta-dev/greta/issues/599)
 
 - 2023-12-15
 - Up Next
@@ -207,7 +207,7 @@ Two implementation caveats, both load-bearing:
 - priority: medium (rides on [#595](https://github.com/greta-dev/greta/issues/595)).
 - defect in the proposed fix: the acceptance test in `fixes/issue-599.md` does not run. It builds on `distribution(as_data(rnorm(10))) <- normal(mu, 1)`, which parses but fails at runtime with *"target of assignment expands to non-language object"* - a replacement function needs an assignable name on the left, so the test fails at model definition, before reaching the behaviour under test. Assign first: `y <- as_data(rnorm(10))`, then `distribution(y) <- normal(mu, 1)`.
 
-### [Issue #601](https://github.com/greta-dev/greta/issues/601)
+## [Issue #601](https://github.com/greta-dev/greta/issues/601)
 
 - 2024-01-16
 - (none)
@@ -220,7 +220,7 @@ Two implementation caveats, both load-bearing:
 - proposed fix: see [fixes/issue-601.md](fixes/issue-601.md).
 - priority: medium (rides on [#595](https://github.com/greta-dev/greta/issues/595)).
 
-### [Issue #701](https://github.com/greta-dev/greta/issues/701)
+## [Issue #701](https://github.com/greta-dev/greta/issues/701)
 
 - 2024-08-16
 - (none)

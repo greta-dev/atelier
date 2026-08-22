@@ -45,7 +45,7 @@ because they describe work - [#322](https://github.com/greta-dev/greta/issues/32
 into the milestones, and [#744](https://github.com/greta-dev/greta/issues/744) is circular by construction. They are
 here so that the tracker has somewhere honest to put them.
 
-### [Issue #322](https://github.com/greta-dev/greta/issues/322)
+## [Issue #322](https://github.com/greta-dev/greta/issues/322)
 
 - 2020-01-06
 - (none)
@@ -54,7 +54,7 @@ here so that the tracker has somewhere honest to put them.
 - fix: close as superseded.
 - priority: low (close).
 
-### [Issue #368](https://github.com/greta-dev/greta/issues/368)
+## [Issue #368](https://github.com/greta-dev/greta/issues/368)
 
 - 2021-04-12
 - (none)
@@ -63,7 +63,7 @@ here so that the tracker has somewhere honest to put them.
 - fix: adopt lifecycle; badge experimental/stable functions.
 - priority: low-medium.
 
-### [Issue #435](https://github.com/greta-dev/greta/issues/435)
+## [Issue #435](https://github.com/greta-dev/greta/issues/435)
 
 - 2021-07-08
 - documentation
@@ -72,7 +72,7 @@ here so that the tracker has somewhere honest to put them.
 - fix: no package code - link the revived greta.blog from the pkgdown `_pkgdown.yml` navbar and the README, seed it with one release/forum-derived post, then close in favour of it. Acceptance: the blog link resolves from the site nav and CI's URL check passes. Independent of everything; pairs with [#435](https://github.com/greta-dev/greta/issues/435)'s revival and [#812](https://github.com/greta-dev/greta/issues/812) (site must be reachable first).
 - priority: low (largely done).
 
-### [Issue #442](https://github.com/greta-dev/greta/issues/442)
+## [Issue #442](https://github.com/greta-dev/greta/issues/442)
 
 - 2021-09-30
 - (none)
@@ -81,7 +81,7 @@ here so that the tracker has somewhere honest to put them.
 - fix: adopt `@examplesIf check_tf_version()` across examples.
 - priority: low-medium.
 
-### [Issue #505](https://github.com/greta-dev/greta/issues/505)
+## [Issue #505](https://github.com/greta-dev/greta/issues/505)
 
 - 2022-03-18
 - (none)
@@ -90,7 +90,7 @@ here so that the tracker has somewhere honest to put them.
 - fix: worked prediction examples for hierarchical models.
 - priority: low.
 
-### [Issue #571](https://github.com/greta-dev/greta/issues/571)
+## [Issue #571](https://github.com/greta-dev/greta/issues/571)
 
 - 2022-11-07
 - (none)
@@ -99,7 +99,7 @@ here so that the tracker has somewhere honest to put them.
 - fix: an article on shared/independent structure.
 - priority: low.
 
-### [Issue #623](https://github.com/greta-dev/greta/issues/623)
+## [Issue #623](https://github.com/greta-dev/greta/issues/623)
 
 Still open. A website/documentation task with no milestone. The obvious homes
 are milestone 1, which already absorbs the repo-wide documentation and tooling
@@ -113,7 +113,7 @@ carry a version.
 - fix: no package code - add a "papers using greta" page to the pkgdown site (a curated bibliography, seeded from the greta citation and Google Scholar "cited by", maintained in `references.bib`); close when published. Acceptance: the page builds under `pkgdown::build_site()` and appears in the nav. Independent; docs-lane only.
 - priority: low.
 
-### [Issue #716](https://github.com/greta-dev/greta/issues/716)
+## [Issue #716](https://github.com/greta-dev/greta/issues/716)
 
 - 2024-08-21
 - (none)
@@ -122,7 +122,7 @@ carry a version.
 - fix: restore lintr in CI.
 - priority: low.
 
-### [Issue #721](https://github.com/greta-dev/greta/issues/721)
+## [Issue #721](https://github.com/greta-dev/greta/issues/721)
 
 - 2024-08-27
 - (none)
@@ -131,7 +131,7 @@ carry a version.
 - fix: correct the language override.
 - priority: low (quick).
 
-### [Issue #724](https://github.com/greta-dev/greta/issues/724)
+## [Issue #724](https://github.com/greta-dev/greta/issues/724)
 
 - 2024-09-27
 - (none)
@@ -140,7 +140,7 @@ carry a version.
 - fix: add `@family` groupings across the reference.
 - priority: low.
 
-### [Issue #744](https://github.com/greta-dev/greta/issues/744)
+## [Issue #744](https://github.com/greta-dev/greta/issues/744)
 
 - 2024-11-07
 - (none)
@@ -149,7 +149,7 @@ carry a version.
 - fix: sweep TODOs into issues; close.
 - priority: low (close).
 
-### [Issue #768](https://github.com/greta-dev/greta/issues/768)
+## [Issue #768](https://github.com/greta-dev/greta/issues/768)
 
 - 2025-02-25
 - (none)
@@ -158,7 +158,7 @@ carry a version.
 - fix: migrate examples from older datasets to penguins.
 - priority: low.
 
-### [Issue #803](https://github.com/greta-dev/greta/issues/803)
+## [Issue #803](https://github.com/greta-dev/greta/issues/803)
 
 - 2026-04-23
 - (none)
@@ -167,7 +167,7 @@ carry a version.
 - fix: document the R6 classes (or their successors) with roxygen.
 - priority: low.
 
-### [Issue #812](https://github.com/greta-dev/greta/issues/812)
+## [Issue #812](https://github.com/greta-dev/greta/issues/812)
 
 - 2026-07-07
 - (none)
@@ -188,7 +188,7 @@ sweep is narrower than the block above implies. The blog itself
 [#822](https://github.com/greta-dev/greta/issues/822)) is now built and linked
 from the greta website, so it is no longer blocked on this.
 :::
-### [Issue #822](https://github.com/greta-dev/greta/issues/822)
+## [Issue #822](https://github.com/greta-dev/greta/issues/822)
 
 - 2026-07-21
 - low hanging fruit

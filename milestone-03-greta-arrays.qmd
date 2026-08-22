@@ -43,7 +43,7 @@ milestone, and [#181](https://github.com/greta-dev/greta/issues/181) - reusing o
 milestone 4, since it depends on the log-prob data interface rather than
 on array semantics.
 
-### [Issue #196](https://github.com/greta-dev/greta/issues/196)
+## [Issue #196](https://github.com/greta-dev/greta/issues/196)
 
 - 2018-07-04
 - documentation
@@ -52,7 +52,7 @@ on array semantics.
 - fix: document replacement patterns once [#512](https://github.com/greta-dev/greta/issues/512)/#552 land.
 - priority: low.
 
-### [Issue #210](https://github.com/greta-dev/greta/issues/210)
+## [Issue #210](https://github.com/greta-dev/greta/issues/210)
 
 - 2018-08-13
 - (none)
@@ -61,7 +61,7 @@ on array semantics.
 - fix: the registry removes the per-node overhead; a loop constructor then builds many nodes cheaply.
 - priority: medium (performance).
 
-### [Issue #216](https://github.com/greta-dev/greta/issues/216)
+## [Issue #216](https://github.com/greta-dev/greta/issues/216)
 
 - 2018-08-16
 - documentation
@@ -124,7 +124,7 @@ wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
 (rule 1).
 :::
 
-### [Issue #256](https://github.com/greta-dev/greta/issues/256)
+## [Issue #256](https://github.com/greta-dev/greta/issues/256)
 
 - 2018-11-21
 - documentation
@@ -133,7 +133,7 @@ wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
 - fix: an article on conditional logic in greta.
 - priority: low.
 
-### [Issue #263](https://github.com/greta-dev/greta/issues/263)
+## [Issue #263](https://github.com/greta-dev/greta/issues/263)
 
 - 2019-02-03
 - documentation
@@ -142,7 +142,7 @@ wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
 - fix: document/expose R equivalents where they exist.
 - priority: low.
 
-### [Issue #366](https://github.com/greta-dev/greta/issues/366)
+## [Issue #366](https://github.com/greta-dev/greta/issues/366)
 
 - 2018-04-08
 - bug
@@ -155,7 +155,7 @@ wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
 - proposed fix: [fixes/issue-366.md](fixes/issue-366.md)
 - priority: medium.
 
-### [Issue #504](https://github.com/greta-dev/greta/issues/504)
+## [Issue #504](https://github.com/greta-dev/greta/issues/504)
 
 - 2022-03-17
 - enhancement
@@ -167,7 +167,7 @@ wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
 - proposed fix: [fixes/issue-504.md](fixes/issue-504.md)
 - priority: high (near-free).
 
-### [Issue #512](https://github.com/greta-dev/greta/issues/512)
+## [Issue #512](https://github.com/greta-dev/greta/issues/512)
 
 - 2022-03-29
 - Up Next
@@ -178,7 +178,7 @@ wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
 - priority: close as filed.
 - defect in the proposed fix: it targets `tf_cbind` column ordering and value-merge corruption, all of which is verified correct. Its acceptance test passes unmodified against 0.6.0, so following it would lock in behaviour that was never broken.
 
-### [Issue #514](https://github.com/greta-dev/greta/issues/514)
+## [Issue #514](https://github.com/greta-dev/greta/issues/514)
 
 - 2022-04-19
 - (none)
@@ -190,7 +190,7 @@ wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
 - proposed fix: [fixes/issue-514.md](fixes/issue-514.md)
 - priority: medium.
 
-### [Issue #520](https://github.com/greta-dev/greta/issues/520)
+## [Issue #520](https://github.com/greta-dev/greta/issues/520)
 
 - 2022-05-08
 - documentation
@@ -199,7 +199,7 @@ wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
 - fix: clarify calculate's semantics on data; add an example.
 - priority: low.
 
-### [Issue #528](https://github.com/greta-dev/greta/issues/528)
+## [Issue #528](https://github.com/greta-dev/greta/issues/528)
 
 - 2022-05-31
 - (none)
@@ -210,7 +210,7 @@ wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
 - proposed fix: [fixes/issue-528.md](fixes/issue-528.md)
 - priority: medium.
 
-### [Issue #532](https://github.com/greta-dev/greta/issues/532)
+## [Issue #532](https://github.com/greta-dev/greta/issues/532)
 
 - 2022-06-13
 - (none)
@@ -221,7 +221,7 @@ wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
 - proposed fix: [fixes/issue-532.md](fixes/issue-532.md)
 - priority: low.
 
-### [Issue #552](https://github.com/greta-dev/greta/issues/552)
+## [Issue #552](https://github.com/greta-dev/greta/issues/552)
 
 - 2022-08-25
 - (none)
@@ -232,7 +232,7 @@ wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
 - priority: close.
 - defect in the proposed fix: step 3 proposes dropping the eager `value = new_value` cache. **Do not do this** - that cache is exactly what makes fixed values display correctly through `[<-`, and removing it would turn [#512](https://github.com/greta-dev/greta/issues/512)'s display asymmetry from a `cbind`-only bug into a general one.
 
-### [Issue #583](https://github.com/greta-dev/greta/issues/583)
+## [Issue #583](https://github.com/greta-dev/greta/issues/583)
 
 - 2023-02-02
 - (none)
@@ -244,7 +244,7 @@ wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
 - proposed fix: [fixes/issue-583.md](fixes/issue-583.md)
 - priority: medium.
 
-### [Issue #611](https://github.com/greta-dev/greta/issues/611)
+## [Issue #611](https://github.com/greta-dev/greta/issues/611)
 
 - 2024-02-08
 - Up Next, impact-1, low hanging fruit
@@ -258,7 +258,7 @@ wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
 - priority: medium (good first issue).
 - defect in the proposed fix: `getNamespaceExports()` is the wrong name source. It returns 27 names, 5 of them spurious S4 method-table internals (`.__T__[[<-:base` and friends). Use `ls("package:greta")` instead, or filter `^\.__[TC]__`. The `find()`-based detection is otherwise sound - it handles infix operators correctly.
 
-### [Issue #728](https://github.com/greta-dev/greta/issues/728)
+## [Issue #728](https://github.com/greta-dev/greta/issues/728)
 
 - 2024-10-15
 - (none)
@@ -272,7 +272,7 @@ wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
 - priority: medium.
 - defect in the proposed fix: it targets code that never executes. The fix proposes guarding `tf$squeeze`/`tf$tile` in the mixture `sample()` closure at `R/mixture.R:235-277`, but the DAG fails to define before any sampling happens. The real failure is `how_to_define_hybrid()` at `R/dag_class.R:163`: a mixture distribution node has a `NULL` target, `node_type(NULL)` returns `character(0)`, and the line evaluates `if (character(0) == "data")` - "argument is of length zero". The `is.null(target)` branch above it *sets* `node_mode` but does not skip the checks below. **No change to `R/mixture.R` is needed**; convert the `if` blocks at `R/dag_class.R:158-180` into an `if`/`else if` chain.
 
-### [Issue #783](https://github.com/greta-dev/greta/issues/783)
+## [Issue #783](https://github.com/greta-dev/greta/issues/783)
 
 - 2025-03-25
 - bug
@@ -283,7 +283,7 @@ wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
 - proposed fix: [fixes/issue-783.md](fixes/issue-783.md)
 - priority: medium.
 
-### [Issue #798](https://github.com/greta-dev/greta/issues/798)
+## [Issue #798](https://github.com/greta-dev/greta/issues/798)
 
 - 2026-01-29
 - (none)
@@ -293,7 +293,7 @@ wanting an identity write `diag(ones(n))` or `diag(as_data(1), n, n)`
 - fix: replace with `samplers <- future::value(samplers)` (list method), gaining early-stop on error/interrupt. Acceptance: run a parallel `mcmc()` (`future::plan(multisession)`) and confirm the chains still combine into a `greta_mcmc_list` — extend the existing parallel test in `tests/testthat/test_inference.R`. Independent, ~1-line change, trivial risk.
 - priority: low.
 
-### [Issue #800](https://github.com/greta-dev/greta/issues/800)
+## [Issue #800](https://github.com/greta-dev/greta/issues/800)
 
 - 2026-02-24
 - (none)

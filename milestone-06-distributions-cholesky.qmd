@@ -131,7 +131,7 @@ for the initials fix. Code anchors:
 `R/tf_functions.R` (`CorrelationCholesky`, `FillScaleTriL`).
 
 
-### [Issue #159](https://github.com/greta-dev/greta/issues/159)
+## [Issue #159](https://github.com/greta-dev/greta/issues/159)
 
 - 2018-05-03
 - (none)
@@ -141,7 +141,7 @@ for the initials fix. Code anchors:
 - fix: check df up front; clear error. Batches with [#646](https://github.com/greta-dev/greta/issues/646).
 - priority: medium.
 
-### [Issue #252](https://github.com/greta-dev/greta/issues/252)
+## [Issue #252](https://github.com/greta-dev/greta/issues/252)
 
 - 2018-11-19
 - enhancement
@@ -151,7 +151,7 @@ for the initials fix. Code anchors:
 - fix: add `probit()`; document alongside the link functions.
 - priority: low.
 
-### [Issue #264](https://github.com/greta-dev/greta/issues/264)
+## [Issue #264](https://github.com/greta-dev/greta/issues/264)
 
 - 2019-02-06
 - (none)
@@ -161,7 +161,7 @@ for the initials fix. Code anchors:
 - fix: wrap it as a greta distribution; overlaps greta.distributions.
 - priority: medium.
 
-### [Issue #274](https://github.com/greta-dev/greta/issues/274)
+## [Issue #274](https://github.com/greta-dev/greta/issues/274)
 
 - 2019-03-27
 - (none)
@@ -171,7 +171,7 @@ for the initials fix. Code anchors:
 - fix: correct the bijector/support; add a sampling test.
 - priority: medium.
 
-### [Issue #288](https://github.com/greta-dev/greta/issues/288)
+## [Issue #288](https://github.com/greta-dev/greta/issues/288)
 
 - 2019-06-27
 - documentation
@@ -180,7 +180,7 @@ for the initials fix. Code anchors:
 - fix: port Stagnant into the examples gallery.
 - priority: low.
 
-### [Issue #339](https://github.com/greta-dev/greta/issues/339)
+## [Issue #339](https://github.com/greta-dev/greta/issues/339)
 
 - 2020-01-28
 - documentation
@@ -190,7 +190,7 @@ for the initials fix. Code anchors:
 - fix: implement the node with bijector-based reversal.
 - priority: high (unblocks initials).
 
-### [Issue #347](https://github.com/greta-dev/greta/issues/347)
+## [Issue #347](https://github.com/greta-dev/greta/issues/347)
 
 - 2020-03-24
 - bug
@@ -199,7 +199,7 @@ for the initials fix. Code anchors:
 - fix: re-verify on 0.6; fix or add a regression test.
 - priority: medium.
 
-### [Issue #406](https://github.com/greta-dev/greta/issues/406)
+## [Issue #406](https://github.com/greta-dev/greta/issues/406)
 
 - 2021-05-04
 - documentation
@@ -207,7 +207,7 @@ for the initials fix. Code anchors:
 - finding: an example-correctness fix.
 - fix: correct the horseshoe examples; add a working template.
 - priority: low.
-### [Issue #428](https://github.com/greta-dev/greta/issues/428)
+## [Issue #428](https://github.com/greta-dev/greta/issues/428)
 
 - 2021-06-09
 - (none)
@@ -217,7 +217,7 @@ for the initials fix. Code anchors:
 - fix: correct truncated sampling; Geweke-check against the density.
 - priority: medium.
 
-### [Issue #440](https://github.com/greta-dev/greta/issues/440)
+## [Issue #440](https://github.com/greta-dev/greta/issues/440)
 
 - 2021-09-25
 - (none)
@@ -227,7 +227,7 @@ for the initials fix. Code anchors:
 - fix: land `transformed_variable` so initials attach to the underlying variable.
 - priority: high.
 
-### [Issue #584](https://github.com/greta-dev/greta/issues/584)
+## [Issue #584](https://github.com/greta-dev/greta/issues/584)
 
 - 2023-02-27
 - Up Next
@@ -236,7 +236,7 @@ for the initials fix. Code anchors:
 - fix: adopt prior-sampling as the default init; generalises [#413](https://github.com/greta-dev/greta/issues/413).
 - priority: high (pairs with [#440](https://github.com/greta-dev/greta/issues/440)/#339).
 
-### [Issue #589](https://github.com/greta-dev/greta/issues/589)
+## [Issue #589](https://github.com/greta-dev/greta/issues/589)
 
 - 2023-10-18
 - (none)
@@ -246,7 +246,7 @@ for the initials fix. Code anchors:
 - fix: detect non-PD input; error clearly.
 - priority: medium.
 
-### [Issue #646](https://github.com/greta-dev/greta/issues/646)
+## [Issue #646](https://github.com/greta-dev/greta/issues/646)
 
 - 2024-07-29
 - Up Next, low hanging fruit
@@ -255,7 +255,7 @@ for the initials fix. Code anchors:
 - fix: validate parameters; friendly error.
 - priority: low.
 
-### [Issue #737](https://github.com/greta-dev/greta/issues/737)
+## [Issue #737](https://github.com/greta-dev/greta/issues/737)
 
 - 2024-11-01
 - (none)
@@ -265,7 +265,7 @@ for the initials fix. Code anchors:
 - fix: derive the reference; reconcile; re-enable the disabled tests.
 - priority: high (correctness).
 
-### [Issue #748](https://github.com/greta-dev/greta/issues/748)
+## [Issue #748](https://github.com/greta-dev/greta/issues/748)
 
 - 2024-11-12
 - (none)
@@ -275,7 +275,7 @@ for the initials fix. Code anchors:
 - fix: correct the init shape; shared test with [#749](https://github.com/greta-dev/greta/issues/749).
 - priority: medium.
 
-### [Issue #749](https://github.com/greta-dev/greta/issues/749)
+## [Issue #749](https://github.com/greta-dev/greta/issues/749)
 
 - 2024-11-12
 - (none)
@@ -284,7 +284,7 @@ for the initials fix. Code anchors:
 - fix: clearer error; resolves with [#748](https://github.com/greta-dev/greta/issues/748).
 - priority: medium.
 
-### [Issue #761](https://github.com/greta-dev/greta/issues/761)
+## [Issue #761](https://github.com/greta-dev/greta/issues/761)
 
 - 2025-01-23
 - (none)

@@ -18,7 +18,7 @@ than twice. That makes this the milestone with the largest migration
 burden in the plan, and the natural 1.0 candidate whenever greta
 decides to go there. It is not going there yet.
 
-### [Issue #144](https://github.com/greta-dev/greta/issues/144)
+## [Issue #144](https://github.com/greta-dev/greta/issues/144)
 
 - 2018-03-14
 - documentation
@@ -27,7 +27,7 @@ decides to go there. It is not going there yet.
 - fix: track against concrete doc PRs; close when the concrete items land.
 - priority: low.
 
-### [Issue #257](https://github.com/greta-dev/greta/issues/257)
+## [Issue #257](https://github.com/greta-dev/greta/issues/257)
 
 - 2018-11-21
 - documentation
@@ -42,7 +42,7 @@ decides to go there. It is not going there yet.
 - priority: medium.
 - defect in the proposed fix: the acceptance test in `fixes/issue-257.md` does not run. It builds on `distribution(as_data(rnorm(10))) <- normal(mu, 1)`, which parses but fails at runtime with *"target of assignment expands to non-language object"* - a replacement function needs an assignable name on the left, so the test fails at model definition, before reaching the behaviour under test. Assign first: `y <- as_data(rnorm(10))`, then `distribution(y) <- normal(mu, 1)`.
 
-### [Issue #375](https://github.com/greta-dev/greta/issues/375)
+## [Issue #375](https://github.com/greta-dev/greta/issues/375)
 
 - 2021-04-20
 - Up Next
@@ -51,7 +51,7 @@ decides to go there. It is not going there yet.
 - fix: migrate to classed conditions; pairs with the checking work.
 - priority: medium.
 
-### [Issue #376](https://github.com/greta-dev/greta/issues/376)
+## [Issue #376](https://github.com/greta-dev/greta/issues/376)
 
 - 2021-04-20
 - Up Next, low hanging fruit
@@ -60,7 +60,7 @@ decides to go there. It is not going there yet.
 - fix: name arguments in internal calls; guard with tests.
 - priority: low (good first issue).
 
-### [Issue #385](https://github.com/greta-dev/greta/issues/385)
+## [Issue #385](https://github.com/greta-dev/greta/issues/385)
 
 - 2021-04-22
 - Up Next
@@ -69,7 +69,7 @@ decides to go there. It is not going there yet.
 - fix: a text tree of the dag; complements the plot work.
 - priority: low-medium.
 
-### [Issue #481](https://github.com/greta-dev/greta/issues/481)
+## [Issue #481](https://github.com/greta-dev/greta/issues/481)
 
 - 2022-01-24
 - Up Next, low hanging fruit
@@ -78,7 +78,7 @@ decides to go there. It is not going there yet.
 - fix: add a `greta_calculate` class with a print method.
 - priority: low.
 
-### [Issue #610](https://github.com/greta-dev/greta/issues/610)
+## [Issue #610](https://github.com/greta-dev/greta/issues/610)
 
 - 2024-02-08
 - (none)
@@ -87,7 +87,7 @@ decides to go there. It is not going there yet.
 - fix: `plot(model)` gains a compute-vs-dag view worth putting in a paper.
 - priority: medium.
 
-### [Issue #615](https://github.com/greta-dev/greta/issues/615)
+## [Issue #615](https://github.com/greta-dev/greta/issues/615)
 
 - 2024-02-12
 - Up Next, low hanging fruit
@@ -101,7 +101,7 @@ decides to go there. It is not going there yet.
 - priority: medium (good contributor task).
 - defect in the proposed fix: `agrep(max.distance = 0.34)` is unsafe. `max.distance` is a *fraction of pattern length*, so short names match nearly every formal: `sd`, `x` and `n` each match all six of `calculate()`'s formals, and `beta` matches `trace_batch_size`. Those are precisely the names users give greta arrays, so `calculate(x, sd = 3)` would suggest "did you mean `trace_batch_size`?" - worse than the status quo. Use a bounded `utils::adist()` (threshold <= 2, plus a length guard), and pin those false positives as tests.
 
-### [Issue #622](https://github.com/greta-dev/greta/issues/622)
+## [Issue #622](https://github.com/greta-dev/greta/issues/622)
 
 - 2024-03-15
 - Up Next
@@ -110,7 +110,7 @@ decides to go there. It is not going there yet.
 - fix: adopt `test_that_cli()` for installer/print output.
 - priority: low.
 
-### [Issue #625](https://github.com/greta-dev/greta/issues/625)
+## [Issue #625](https://github.com/greta-dev/greta/issues/625)
 
 - 2024-04-30
 - Up Next, low hanging fruit
@@ -119,7 +119,7 @@ decides to go there. It is not going there yet.
 - fix: land vctrs, then the print/overwrite methods.
 - priority: medium.
 
-### [Issue #648](https://github.com/greta-dev/greta/issues/648)
+## [Issue #648](https://github.com/greta-dev/greta/issues/648)
 
 - 2024-07-29
 - (none)
@@ -128,7 +128,7 @@ decides to go there. It is not going there yet.
 - fix: prototype a vctrs-backed unknowns class; measure the blast radius.
 - priority: medium (enabler).
 
-### [Issue #650](https://github.com/greta-dev/greta/issues/650)
+## [Issue #650](https://github.com/greta-dev/greta/issues/650)
 
 - 2024-07-30
 - Up Next
@@ -137,7 +137,7 @@ decides to go there. It is not going there yet.
 - fix: print method on `greta_calculate`.
 - priority: low.
 
-### [Issue #653](https://github.com/greta-dev/greta/issues/653)
+## [Issue #653](https://github.com/greta-dev/greta/issues/653)
 
 - 2024-07-30
 - Up Next, low hanging fruit
@@ -146,7 +146,7 @@ decides to go there. It is not going there yet.
 - fix: `summary.greta_mcmc_list()`.
 - priority: low (good first issue).
 
-### [Issue #656](https://github.com/greta-dev/greta/issues/656)
+## [Issue #656](https://github.com/greta-dev/greta/issues/656)
 
 - 2024-07-30
 - Up Next, low hanging fruit
@@ -155,7 +155,7 @@ decides to go there. It is not going there yet.
 - fix: truncate/paginate columns in the print method.
 - priority: low.
 
-### [Issue #657](https://github.com/greta-dev/greta/issues/657)
+## [Issue #657](https://github.com/greta-dev/greta/issues/657)
 
 - 2024-07-30
 - Up Next
@@ -164,7 +164,7 @@ decides to go there. It is not going there yet.
 - fix: respect `getOption("width")` in MCMC printing.
 - priority: low.
 
-### [Issue #690](https://github.com/greta-dev/greta/issues/690)
+## [Issue #690](https://github.com/greta-dev/greta/issues/690)
 
 - 2024-08-13
 - Up Next, printing
@@ -173,7 +173,7 @@ decides to go there. It is not going there yet.
 - fix: print the full symmetric matrix, not the raw factor.
 - priority: low.
 
-### [Issue #691](https://github.com/greta-dev/greta/issues/691)
+## [Issue #691](https://github.com/greta-dev/greta/issues/691)
 
 - 2024-08-13
 - Up Next, printing
@@ -182,7 +182,7 @@ decides to go there. It is not going there yet.
 - fix: show dims in the print header.
 - priority: low (good first issue).
 
-### [Issue #692](https://github.com/greta-dev/greta/issues/692)
+## [Issue #692](https://github.com/greta-dev/greta/issues/692)
 
 - 2024-08-13
 - (none)
@@ -191,7 +191,7 @@ decides to go there. It is not going there yet.
 - finding: **the July 2026 pass recorded this as fixed, and that verdict was wrong.** It tested `chol()` on a *data* greta array - `all.equal(calculate(chol(as_data(K)))[[1]], chol(K))` is `TRUE` - but the issue is about the *variable* path, which is the case its own reprex shows: `wishart(df = 4, Sigma = diag(3))`, where greta holds a cholesky factor internally as its representation of the variable. The data path was already correct and was never what the issue asked about. The maintainer's ruling (August 2026) is that [#692](https://github.com/greta-dev/greta/issues/692) is not resolved.
 - fix: establish which triangle the variable path returns for `wishart()`, `lkj_correlation()` and `cholesky_variable()`, and make it upper to match the data path and base R. Land a regression test pinning `chol()` against `base::chol()` at the same time - the risk runs in both directions, because greta.gp does `Lm <- t(chol(Kmm))` and then `forwardsolve(Lm, ...)`, which needs a lower factor and works only because the data path is upper. Flipping a convention without the test would make greta.gp **silently return wrong numbers**: measured at a maximum absolute difference of 0.2961 on a 4x4, with no error raised.
 - priority: high. This is one of the two known breaking changes left in the plan, and it is batched with [#648](https://github.com/greta-dev/greta/issues/648) so both land in one release.
-### [Issue #697](https://github.com/greta-dev/greta/issues/697)
+## [Issue #697](https://github.com/greta-dev/greta/issues/697)
 
 - 2024-08-16
 - (none)
@@ -200,7 +200,7 @@ decides to go there. It is not going there yet.
 - fix: audit and unify `check_*`; pairs with [#375](https://github.com/greta-dev/greta/issues/375) classed errors.
 - priority: medium.
 
-### [Issue #767](https://github.com/greta-dev/greta/issues/767)
+## [Issue #767](https://github.com/greta-dev/greta/issues/767)
 
 - 2025-02-13
 - help wanted
@@ -209,7 +209,7 @@ decides to go there. It is not going there yet.
 - fix: a cli-styled print method for samplers.
 - priority: low.
 
-### [Issue #784](https://github.com/greta-dev/greta/issues/784)
+## [Issue #784](https://github.com/greta-dev/greta/issues/784)
 
 - 2025-03-26
 - (none)
@@ -220,7 +220,7 @@ decides to go there. It is not going there yet.
 - proposed fix: [fixes/issue-784.md](fixes/issue-784.md)
 - priority: medium (quick).
 
-### [Issue #785](https://github.com/greta-dev/greta/issues/785)
+## [Issue #785](https://github.com/greta-dev/greta/issues/785)
 
 - 2025-03-27
 - (none)

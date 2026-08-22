@@ -460,7 +460,7 @@ home for whichever way this resolves.
 
 
 
-### [Issue #155](https://github.com/greta-dev/greta/issues/155)
+## [Issue #155](https://github.com/greta-dev/greta/issues/155)
 
 - 2018-04-26
 - (none)
@@ -470,7 +470,7 @@ home for whichever way this resolves.
 - fix: cache constant op results at define time.
 - priority: low-medium.
 
-### [Issue #156](https://github.com/greta-dev/greta/issues/156)
+## [Issue #156](https://github.com/greta-dev/greta/issues/156)
 
 - 2018-04-27
 - (none)
@@ -479,7 +479,7 @@ home for whichever way this resolves.
 - fix: carry a type field in the registry; use it for validation and the dtype clause.
 - priority: medium (enabler for milestone 9 and better errors).
 
-### [Issue #247](https://github.com/greta-dev/greta/issues/247)
+## [Issue #247](https://github.com/greta-dev/greta/issues/247)
 
 - 2018-11-08
 - (none)
@@ -488,7 +488,7 @@ home for whichever way this resolves.
 - fix: land Phases A-C of the registry.
 - priority: medium (the design spine of this milestone).
 
-### [Issue #309](https://github.com/greta-dev/greta/issues/309)
+## [Issue #309](https://github.com/greta-dev/greta/issues/309)
 
 - 2019-08-17
 - (none)
@@ -497,7 +497,7 @@ home for whichever way this resolves.
 - fix: rewrite the extract/replace ops against the op table with efficient primitives.
 - priority: low-medium.
 
-### [Issue #581](https://github.com/greta-dev/greta/issues/581)
+## [Issue #581](https://github.com/greta-dev/greta/issues/581)
 
 - 2022-12-20
 - Up Next
@@ -506,7 +506,7 @@ home for whichever way this resolves.
 - fix: add `outer` as a neutral-named op with a TF implementation.
 - priority: low.
 
-### [Issue #586](https://github.com/greta-dev/greta/issues/586)
+## [Issue #586](https://github.com/greta-dev/greta/issues/586)
 
 - 2023-04-20
 - (none)
@@ -515,7 +515,7 @@ home for whichever way this resolves.
 - fix: once the op table lands, a second backend is a new table of implementations.
 - priority: medium (2027; strategy-dependent).
 
-### [Issue #705](https://github.com/greta-dev/greta/issues/705)
+## [Issue #705](https://github.com/greta-dev/greta/issues/705)
 
 - 2024-08-16
 - (none)

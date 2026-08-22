@@ -156,7 +156,7 @@ bijector round-trip tests for every constrained variable type. Keep the
 Geweke checks as the end-to-end layer above both - they are already
 written, and as of August 2026 they are finally runnable ([#722](https://github.com/greta-dev/greta/issues/722)).
 
-### [Issue #395](https://github.com/greta-dev/greta/issues/395)
+## [Issue #395](https://github.com/greta-dev/greta/issues/395)
 
 - 2021-05-01
 - Up Next, impact-1
@@ -165,7 +165,7 @@ written, and as of August 2026 they are finally runnable ([#722](https://github.
 - fix: adopt {patrick} for the repetitive test families.
 - priority: low-medium.
 
-### [Issue #408](https://github.com/greta-dev/greta/issues/408)
+## [Issue #408](https://github.com/greta-dev/greta/issues/408)
 
 - 2021-05-05
 - documentation
@@ -174,7 +174,7 @@ written, and as of August 2026 they are finally runnable ([#722](https://github.
 - fix: a minimal dev Dockerfile; document.
 - priority: low.
 
-### [Issue #433](https://github.com/greta-dev/greta/issues/433)
+## [Issue #433](https://github.com/greta-dev/greta/issues/433)
 
 - 2021-07-08
 - Up Next
@@ -183,7 +183,7 @@ written, and as of August 2026 they are finally runnable ([#722](https://github.
 - fix: fill coverage gaps as milestones land; track the number.
 - priority: low.
 
-### [Issue #563](https://github.com/greta-dev/greta/issues/563)
+## [Issue #563](https://github.com/greta-dev/greta/issues/563)
 
 - 2022-10-11
 - Up Next
@@ -192,7 +192,7 @@ written, and as of August 2026 they are finally runnable ([#722](https://github.
 - fix: adopt the `expect_no_*` family.
 - priority: low.
 
-### [Issue #591](https://github.com/greta-dev/greta/issues/591)
+## [Issue #591](https://github.com/greta-dev/greta/issues/591)
 
 - 2023-11-08
 - Up Next, low hanging fruit
@@ -201,7 +201,7 @@ written, and as of August 2026 they are finally runnable ([#722](https://github.
 - fix: replace `expect_ok` calls.
 - priority: low (good first issue).
 
-### [Issue #596](https://github.com/greta-dev/greta/issues/596)
+## [Issue #596](https://github.com/greta-dev/greta/issues/596)
 
 - 2023-11-21
 - (none)
@@ -210,7 +210,7 @@ written, and as of August 2026 they are finally runnable ([#722](https://github.
 - fix: add optimiser edge-case tests.
 - priority: low.
 
-### [Issue #624](https://github.com/greta-dev/greta/issues/624)
+## [Issue #624](https://github.com/greta-dev/greta/issues/624)
 
 - 2024-04-22
 - Up Next, impact-1
@@ -219,7 +219,7 @@ written, and as of August 2026 they are finally runnable ([#722](https://github.
 - fix: cache TF init; parallelise; skip strategically.
 - priority: medium.
 
-### [Issue #695](https://github.com/greta-dev/greta/issues/695)
+## [Issue #695](https://github.com/greta-dev/greta/issues/695)
 
 - 2024-08-14
 - (none)
@@ -228,7 +228,7 @@ written, and as of August 2026 they are finally runnable ([#722](https://github.
 - fix: replace fragile snapshots with value assertions.
 - priority: low.
 
-### [Issue #708](https://github.com/greta-dev/greta/issues/708)
+## [Issue #708](https://github.com/greta-dev/greta/issues/708)
 
 - 2024-08-19
 - (none)
@@ -237,7 +237,7 @@ written, and as of August 2026 they are finally runnable ([#722](https://github.
 - fix: gate TF-dependent tests on an envvar set in CI.
 - priority: low.
 
-### [Issue #715](https://github.com/greta-dev/greta/issues/715)
+## [Issue #715](https://github.com/greta-dev/greta/issues/715)
 
 - 2024-08-21
 - (none)
@@ -246,7 +246,7 @@ written, and as of August 2026 they are finally runnable ([#722](https://github.
 - fix: refactor to `expect_*` factories.
 - priority: low.
 
-### [Issue #723](https://github.com/greta-dev/greta/issues/723)
+## [Issue #723](https://github.com/greta-dev/greta/issues/723)
 
 - 2024-08-28
 - (none)
@@ -254,7 +254,7 @@ written, and as of August 2026 they are finally runnable ([#722](https://github.
 - finding: the posterior-check helpers are monolithic; the conformance suite wants them modular.
 - fix: factor the checks; reuse in conformance.
 - priority: low.
-### [Issue #727](https://github.com/greta-dev/greta/issues/727)
+## [Issue #727](https://github.com/greta-dev/greta/issues/727)
 
 - 2024-10-15
 - (none)
@@ -262,7 +262,7 @@ written, and as of August 2026 they are finally runnable ([#722](https://github.
 - finding: an untested checker.
 - fix: add coverage.
 - priority: low.
-### [Issue #751](https://github.com/greta-dev/greta/issues/751)
+## [Issue #751](https://github.com/greta-dev/greta/issues/751)
 
 - 2024-11-13
 - (none)

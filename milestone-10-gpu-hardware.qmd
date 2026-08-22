@@ -14,7 +14,7 @@ plus two long-standing reports that the feature would let a user
 diagnose for themselves.
 
 
-### [Issue #246](https://github.com/greta-dev/greta/issues/246)
+## [Issue #246](https://github.com/greta-dev/greta/issues/246)
 
 - 2018-11-03
 - installation
@@ -24,7 +24,7 @@ diagnose for themselves.
 - fix: re-verify against a post-unpin TF build with a CUDA device present; if it still fails, the report becomes actionable for the first time because [#545](https://github.com/greta-dev/greta/issues/545)'s sitrep output will say which device was selected.
 - priority: low (gated on milestone 1 and [#545](https://github.com/greta-dev/greta/issues/545)).
 
-### [Issue #472](https://github.com/greta-dev/greta/issues/472)
+## [Issue #472](https://github.com/greta-dev/greta/issues/472)
 
 - 2021-12-14
 - installation
@@ -34,7 +34,7 @@ diagnose for themselves.
 - fix: either suppress/contextualise the warning in greta's startup path with a pointer to what it does and does not mean for performance, or close as a deliberate won't-do. Needs a maintainer ruling, not investigation.
 - priority: low (needs a decision, not code).
 
-### [Issue #545](https://github.com/greta-dev/greta/issues/545)
+## [Issue #545](https://github.com/greta-dev/greta/issues/545)
 
 - 2022-08-09
 - (none)
@@ -44,7 +44,7 @@ diagnose for themselves.
 - fix: a session-level device interface in the spirit of `future::plan()` - a `greta_device()`-style setter plus device reporting folded into `greta_sitrep()`, so a user can both see what greta chose and override it. Build it on `with(tf$device(...))` ([#704](https://github.com/greta-dev/greta/issues/704)) rather than on environment variables.
 - priority: medium (the milestone's headline).
 
-### [Issue #704](https://github.com/greta-dev/greta/issues/704)
+## [Issue #704](https://github.com/greta-dev/greta/issues/704)
 
 - 2024-08-16
 - (none)

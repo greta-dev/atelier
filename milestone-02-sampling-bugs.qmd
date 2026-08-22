@@ -39,7 +39,7 @@ The remaining three are independent: a numerical-handling failure in
 `mcmc()` ([#577](https://github.com/greta-dev/greta/issues/577)), `calculate()` hanging rather than erroring on NaN
 parameters ([#617](https://github.com/greta-dev/greta/issues/617)), and a suspected memory leak ([#279](https://github.com/greta-dev/greta/issues/279)).
 
-### [Issue #241](https://github.com/greta-dev/greta/issues/241)
+## [Issue #241](https://github.com/greta-dev/greta/issues/241)
 
 - 2018-10-22
 - bug
@@ -48,7 +48,7 @@ parameters ([#617](https://github.com/greta-dev/greta/issues/617)), and a suspec
 - fix: fix the shared root cause; add the bad-sample case as a test.
 - priority: medium.
 
-### [Issue #279](https://github.com/greta-dev/greta/issues/279)
+## [Issue #279](https://github.com/greta-dev/greta/issues/279)
 
 - 2019-05-04
 - bug
@@ -57,7 +57,7 @@ parameters ([#617](https://github.com/greta-dev/greta/issues/617)), and a suspec
 - fix: profile long runs against the [#546](https://github.com/greta-dev/greta/issues/546) retracing hypothesis (graph re-tracing / growth across iterations); if confirmed, the fix is the stable input signatures from [#546](https://github.com/greta-dev/greta/issues/546); otherwise document as upstream.
 - priority: medium (diagnose-first).
 
-### [Issue #285](https://github.com/greta-dev/greta/issues/285)
+## [Issue #285](https://github.com/greta-dev/greta/issues/285)
 
 - 2019-06-15
 - documentation
@@ -66,7 +66,7 @@ parameters ([#617](https://github.com/greta-dev/greta/issues/617)), and a suspec
 - fix: adopt stateless seeds; document GPU caveat.
 - priority: medium.
 
-### [Issue #318](https://github.com/greta-dev/greta/issues/318)
+## [Issue #318](https://github.com/greta-dev/greta/issues/318)
 
 - 2019-09-26
 - (none)
@@ -75,7 +75,7 @@ parameters ([#617](https://github.com/greta-dev/greta/issues/617)), and a suspec
 - fix: fix the shared cause; parametrise tests over thin/pb_update.
 - priority: high (root cause).
 
-### [Issue #427](https://github.com/greta-dev/greta/issues/427)
+## [Issue #427](https://github.com/greta-dev/greta/issues/427)
 
 - 2021-06-09
 - (none)
@@ -84,7 +84,7 @@ parameters ([#617](https://github.com/greta-dev/greta/issues/617)), and a suspec
 - fix: adopt TFP stateless seeds; deterministic regardless of init order.
 - priority: medium.
 
-### [Issue #567](https://github.com/greta-dev/greta/issues/567)
+## [Issue #567](https://github.com/greta-dev/greta/issues/567)
 
 - 2022-10-18
 - Up Next
@@ -93,7 +93,7 @@ parameters ([#617](https://github.com/greta-dev/greta/issues/617)), and a suspec
 - fix: fix the shared cause; test non-multiple combinations.
 - priority: medium.
 
-### [Issue #577](https://github.com/greta-dev/greta/issues/577)
+## [Issue #577](https://github.com/greta-dev/greta/issues/577)
 
 - 2022-12-09
 - TF2
@@ -102,7 +102,7 @@ parameters ([#617](https://github.com/greta-dev/greta/issues/617)), and a suspec
 - fix: reproduce under the conformance suite; fix or document.
 - priority: medium.
 
-### [Issue #609](https://github.com/greta-dev/greta/issues/609)
+## [Issue #609](https://github.com/greta-dev/greta/issues/609)
 
 - 2024-02-08
 - Up Next
@@ -111,7 +111,7 @@ parameters ([#617](https://github.com/greta-dev/greta/issues/617)), and a suspec
 - fix: resolved by the shared fix; add this exact case as a test.
 - priority: medium.
 
-### [Issue #617](https://github.com/greta-dev/greta/issues/617)
+## [Issue #617](https://github.com/greta-dev/greta/issues/617)
 
 - 2024-03-03
 - Up Next
@@ -120,7 +120,7 @@ parameters ([#617](https://github.com/greta-dev/greta/issues/617)), and a suspec
 - fix: detect NaN parameters; error instead of hang.
 - priority: medium.
 
-### [Issue #736](https://github.com/greta-dev/greta/issues/736)
+## [Issue #736](https://github.com/greta-dev/greta/issues/736)
 
 - 2024-10-31
 - (none)
