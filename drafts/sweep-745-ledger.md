@@ -8,6 +8,25 @@ test_distributions.R:304).
 `.internals` exposes internals to greta.gp, greta.dynamics, greta.gam and
 greta.distributions. Check those four before calling anything dead.
 
+## What was filed, 2026-08-23
+
+| what | where |
+|---|---|
+| warmup trace does dead work | greta#834 (filed 2026-08-20) |
+| optimiser drives its loop from R | comment on greta#547 |
+| two different retracing warnings | comment on greta#546 |
+| `model(compile=)` inert, and worth 4.8% | comment on greta**#833**, which is a PR |
+| retire touchstone for greta.benchmarks | greta#836 |
+| is the dimension repair still reachable? | greta#837 |
+| replace `as_tf_function()` with `tf_function()` | greta.dynamics#44 |
+
+Deleted rather than filed: `define_free_state()` (`2daea68b`) and the
+`chol2symm` no-op (`449ba347`).
+
+PR **greta#835** carries the sweep. Its body originally said "Resolves #745",
+which would have closed an issue with 7 markers still live; it now says "Part
+of".
+
 ## Cleanup pile — trivial, land together at the end
 
 | Marker | Finding |
@@ -18,7 +37,7 @@ greta.distributions. Check those four before calling anything dead.
 
 | Marker | Finding | Where it went |
 |---|---|---|
-| `R/greta_model_class.R:85` | `model(compile=)` is documented as applying XLA JIT compilation but is stored and never read. Inert since [`7e3e81ac`](https://github.com/greta-dev/greta/commit/7e3e81ac) (Jan 2023), which removed its only consumer — the TF1 session-config API — and never replaced it. Wiring it up is 2 lines; doing so takes the suite from `PASS 1952 / FAIL 0` to `PASS 1934 / FAIL 8`, all wishart/LKJ/cholesky. XLA cannot compile the gradients of `FillScaleTriL` or `CorrelationCholesky` **when the batch dimension is dynamic**, which is how greta traces (`shape = list(NULL, n_free)`). Static shape is fine — that cut pins the cause. | **greta#833 already exists** ("Pass `compile` arg through to `jit_compile`", open, no milestone) - this is a **comment** on it, not a new issue. Reprex at `atelier/drafts/draft-issue-833-model-compile-inert.R`. **Now measured** (2026-08-23), which changes the decision: wiring `compile` through makes sampling **4.8% faster** on a plain regression - 816 ms against 858 ms, Welch p = 0.006, 95% CI [9, 55] ms, at 50 iterations per branch. See `greta.benchmarks/2026-08-19-jit-compile-vs-main/results.md`. **The draft still says "there is no speed measurement yet" and must be updated before posting.** Two bugs stopped that script running for four days: `run_branches()` defaulted to `current = TRUE`, so it measured whatever was checked out while labelling it `wire-jit-compile`; and a `calculate()` warm-up passed a node where a greta array was expected. Also: at 10 iterations the effect was unresolvable (27 ms and 62 ms on separate runs against a ~58 ms within-branch sd) - a small run of this comparison is uninformative. So the three-way choice is now: fix the docs, **wire it and skip cholesky/LKJ models** (the option the measurement favours), or deprecate. |
+| `R/greta_model_class.R:85` | `model(compile=)` is documented as applying XLA JIT compilation but is stored and never read. Inert since [`7e3e81ac`](https://github.com/greta-dev/greta/commit/7e3e81ac) (Jan 2023), which removed its only consumer — the TF1 session-config API — and never replaced it. Wiring it up is 2 lines; doing so takes the suite from `PASS 1952 / FAIL 0` to `PASS 1934 / FAIL 8`, all wishart/LKJ/cholesky. XLA cannot compile the gradients of `FillScaleTriL` or `CorrelationCholesky` **when the batch dimension is dynamic**, which is how greta traces (`shape = list(NULL, n_free)`). Static shape is fine — that cut pins the cause. | **greta#833 is a PULL REQUEST, not an issue** - it is the `wire-jit-compile` branch itself (`R/dag_class.R`, +4/-2), which is where the measurement belongs. Earlier ledger entries called it an issue; that was wrong. **Comment POSTED** 2026-08-23. Reprex at `atelier/drafts/draft-issue-833-model-compile-inert.R`. **Now measured** (2026-08-23), which changes the decision: wiring `compile` through makes sampling **4.8% faster** on a plain regression - 816 ms against 858 ms, Welch p = 0.006, 95% CI [9, 55] ms, at 50 iterations per branch. See `greta.benchmarks/2026-08-19-jit-compile-vs-main/results.md`. **The draft still says "there is no speed measurement yet" and must be updated before posting.** Two bugs stopped that script running for four days: `run_branches()` defaulted to `current = TRUE`, so it measured whatever was checked out while labelling it `wire-jit-compile`; and a `calculate()` warm-up passed a node where a greta array was expected. Also: at 10 iterations the effect was unresolvable (27 ms and 62 ms on separate runs against a ~58 ms within-branch sd) - a small run of this comparison is uninformative. So the three-way choice is now: fix the docs, **wire it and skip cholesky/LKJ models** (the option the measurement favours), or deprecate. |
 | `R/utils.R:629` (`as_tf_function`) | Redirected to a **greta.dynamics** issue rather than greta: explore replacing `greta:::as_tf_function()` with TF2's `tf_function()`. | drafted at `atelier/drafts/draft-issue-dynamics-as-tf-function.md` |
 | `R/sampler_class.R:205` (`# this is the tuning stage, might not need to evaluate / record the parameter values ... so could remove trace here`) | **The marker is right, and it is not a TF1/2 question - it is R-side dead work.** During warmup `self$trace()` runs with the default `values = FALSE`, so parameter values are *already* not evaluated; all it does is `rbind` the burst's free state onto `traced_free_state`, which is scrubbed wholesale at `R/sampler_class.R:234` once warmup ends. Nothing reads it in between: `update_welford()` takes `last_burst_free_states` directly, and `tune()` works off the Welford state and `accept_history`. The abort path is safe too - `stashed_samples()` gates on `nrow(values_draws[[1]]) == 0`, i.e. on `traced_values`, which warmup never fills, so an abort during warmup returns NULLs and the documented *"only samples from the sampling phase will be returned"* still holds. **Verified by removing the call:** full suite unchanged at `FAIL 0 \| WARN 0 \| SKIP 2 \| PASS 1952`, and `traced_free_state` still ends with exactly `n_samples` rows per chain (100 after a warmup of 2000). **Cost scales with `n_free`** (2000 warmup, 100 samples, 2 chains): `n_free=1` 2.06s -> 1.98s (~4%); `n_free=20` 2.16s -> 2.00s (~7%); `n_free=200` 3.23s -> 2.18s (~33%). Repeated `rbind` growth is the mechanism. Note draws cannot be compared for identity because `set.seed()` does not make `mcmc()` reproducible - greta#285/#427. Scripts: `scratchpad/bench_warmup_trace.R`, `scratchpad/sweep_warmup_trace.R`. | **FILED as greta#834** 2026-08-20. Issue text and evidence both live in `greta.benchmarks/2026-08-20-warmup-trace/` (`issue.md`, `run.R`, `results.qmd`, `results.md`, `results.rds`) - deliberately **not** in atelier, so the wording cannot drift from the numbers. Parts 1-2 are run; part 3 (the `{cross}` comparison) skips cleanly until a `drop-warmup-trace` branch exists. **Checked:** removing the call does **not** cost the warmup progress bar - the bar is driven by the burst loop's `completed_iterations`, and the fix removes the trace, not the bursts (verified with `verbose = TRUE`, bar ran 0/200 to 200/200). **Relation to greta#547/#765:** a piece of #547, but #779 (resolving #765) does **not** fix it - it adds `do_warmup <- self$warmup > 0` so warmup can be skipped wholesale, and stubs `tune_tf`/`tune_r`, but never touches the `trace()` call. |
 | `R/dag_class.R:238` (`define_free_state()`, carried two `# TF1/2 check` markers) | **DELETED** 2026-08-23, `2daea68b`. Zero callers in greta, tests, or the four extension packages. Both branches were broken: `placeholder` errors on an undefined `free_state`, and `variable` does `vals <- as.logical(vals)`, coercing every non-zero initial value to TRUE. Filing an issue was dropped in favour of deleting - the issue would have described a function nobody calls whose fix is deletion. Draft removed as moot. Suite unchanged at PASS 1952. |
@@ -155,7 +174,6 @@ across 3 model shapes (scalar, `normal(dim = 5)`, two variables) x
 every rejected single-sample case included. Reads as TF1-era handling.
 
 12 probes cannot prove the branch unreachable in all cases, so this is **not**
-a delete-on-sight. **Drafted as an issue** 2026-08-23:
-`drafts/draft-issue-dimension-repair.md`. Deciding it properly means reasoning
+a delete-on-sight. **FILED** 2026-08-23 as greta#837, from `drafts/draft-issue-dimension-repair.md`. Deciding it properly means reasoning
 about what `sample_chain` guarantees for the shape of `all_states`, not running
 more cases - which is why it is an issue rather than more probing.
