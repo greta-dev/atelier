@@ -9,7 +9,7 @@ x <- normal(0, 1)
 m_on <- model(x, compile = TRUE)
 m_off <- model(x, compile = FALSE)
 
-#' The flag is stored:
+#' It is [stored on the dag](https://github.com/greta-dev/greta/blob/e8563dae0ef2b8be384fac023f62df1febf17ae6/R/dag_class.R#L39) and never read again.
 
 c(on = m_on$dag$compile, off = m_off$dag$compile)
 
@@ -20,10 +20,9 @@ c(on = m_on$dag$compile, off = m_off$dag$compile)
 
 #' ## What I expect
 #'
-#' `?model` says: *"whether to apply XLA JIT compilation to the TensorFlow
-#' graph representing the model. This may slow down model definition."* So
-#' `compile = TRUE` should compile the graph with XLA, and `compile = FALSE`
-#' should not.
+#' [`?model`](https://github.com/greta-dev/greta/blob/e8563dae0ef2b8be384fac023f62df1febf17ae6/R/greta_model_class.R#L26-L29) says it applies *"XLA JIT
+#' compilation to the TensorFlow graph representing the model"*, so
+#' `compile = TRUE` should compile with XLA and `compile = FALSE` should not.
 #'
 #' ## What happens instead
 #'
@@ -110,36 +109,40 @@ grad_through(tfp$bijectors$FillScaleTriL(), list(NULL, 3L), jit = FALSE)
 #' time — and XLA cannot read it as a constant. Removing the dynamic dimension
 #' makes the failure go away, which is what pins the cause.
 #'
-#' ## Why this is a problem
+#' ## Why this is a problem, and what wiring it buys
 #'
-#' Today: a documented argument silently does nothing, and a user who sets
+#' Today a documented argument silently does nothing, and a user who sets
 #' `compile = FALSE` to avoid a slow model definition gets no change and no
 #' warning.
 #'
-#' If wired up as-is: `compile` defaults to `TRUE`, so every `wishart()`,
-#' `lkj_correlation()` and `cholesky_variable()` model would start failing.
+#' **Measured** in
+#' [greta.benchmarks/2026-08-19-jit-compile-vs-main/results.md](https://github.com/greta-dev/greta.benchmarks/blob/main/2026-08-19-jit-compile-vs-main/results.md),
+#' from [`01-measure.R`](https://github.com/greta-dev/greta.benchmarks/blob/main/2026-08-19-jit-compile-vs-main/01-measure.R): wiring it through makes
+#' [sampling **4.8% faster**](https://github.com/greta-dev/greta.benchmarks/blob/main/2026-08-19-jit-compile-vs-main/results.md#what-this-says) on a plain
+#' regression — 816 ms against 858 ms, Welch p = 0.006, 95% CI [9, 55] ms, at 50
+#' iterations per branch. Model definition is unchanged, as expected: XLA
+#' compiles at first call, not at definition.
 #'
-#' ## Suggested direction
+#' That number needed 50 iterations to see. At 10 the same comparison gave 27 ms
+#' and 62 ms on separate runs, against a within-branch sd of ~58 ms — so treat
+#' any small run of it as uninformative.
 #'
-#' The argument should do something. When it is wired up:
+#' **But `compile` defaults to `TRUE`**, so wiring it as-is would start failing
+#' every `wishart()`, `lkj_correlation()` and `cholesky_variable()` model.
 #'
-#' - warn on `compile = TRUE` that XLA does not support every model, naming the
-#'   cholesky/LKJ limitation
-#' - say so in `?model`
+#' ## Three options
 #'
-#' **There is no speed measurement yet.** An earlier attempt patched the working
-#' tree and compared `compile = TRUE` against `compile = FALSE` in one session;
-#' it suggested no steady-state difference and a one-off compilation cost on
-#' first run, but on three replicates, and it was discarded as not reproducible
-#' by anyone else. A `{cross}` branch comparison replacing it is written at
-#' `greta.benchmarks/2026-08-19-jit-compile-vs-main/run.R` and has not been run.
+#' 1. **Wire it up and exclude the cholesky family** — take the 4.8%, warn when
+#'    `compile = TRUE` meets a model XLA cannot compile, and say so in `?model`.
+#'    This is what the measurement favours.
+#' 2. **Fix the documentation** — say the argument is inert, or remove it.
+#'    Cheapest, and gives up a real if modest speed-up.
+#' 3. **Deprecate `compile`** — now has a measured cost, where before it looked
+#'    free.
 #'
-#' Worth knowing before it is: that script measures a two-parameter regression,
-#' and every model in the benchmark suite is 4 free parameters or fewer, so it
-#' can only speak to small models.
-#'
-#' Also: `model()` defaults `compile = TRUE` while `dag_class$new()` defaults
-#' `FALSE`.
+#' Also worth fixing whichever way this goes:
+#' [`model()` defaults `compile = TRUE`](https://github.com/greta-dev/greta/blob/e8563dae0ef2b8be384fac023f62df1febf17ae6/R/greta_model_class.R#L52) while
+#' [`dag_class$new()` defaults `FALSE`](https://github.com/greta-dev/greta/blob/e8563dae0ef2b8be384fac023f62df1febf17ae6/R/dag_class.R#L24).
 #'
 #' ## A test for this
 
